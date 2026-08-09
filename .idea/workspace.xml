@@ -3,11 +3,51 @@
   <component name="AutoImportSettings">
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
+  <component name="CargoProjects">
+    <cargoProject FILE="$PROJECT_DIR$/Cargo.toml">
+      <package file="$PROJECT_DIR$/crates/crumble">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/crumble-buffer">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/crumble-exec">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/crumble-index">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/crumble-ir">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/crumble-opt">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/crumble-sql">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/crumble-storage">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/crumble-tx">
+        <feature name="default" enabled="true" />
+      </package>
+      <package file="$PROJECT_DIR$/crates/crumble-wal">
+        <feature name="default" enabled="true" />
+      </package>
+    </cargoProject>
+  </component>
   <component name="ChangeListManager">
     <list default="true" id="cf7745a6-b7f4-4a18-97a1-bb78fb58a366" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/docs/architecture/README.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/docs/design/README.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/crates/crumble-sql/src/ast.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/crates/crumble-sql/src/error.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/crates/crumble-sql/src/parser.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/crumble.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/crumble.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/crumble-sql/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-sql/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/crumble-sql/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-sql/src/lib.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -16,64 +56,68 @@
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="RESET_MODE" value="MIXED" />
+  </component>
+  <component name="MacroExpansionManager">
+    <option name="directoryName" value="0mClgoMd" />
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.0000001162650711" />
-      <entry key="MS500" value="1.1387139695370043" />
-      <entry key="S2" value="5.308906568078952" />
-      <entry key="S5" value="11.17764702819449" />
-      <entry key="S10" value="14.831141398731372" />
-      <entry key="S30" value="18.17837198332615" />
-      <entry key="S60" value="19.335507280615314" />
-      <entry key="M2" value="20.06949788802204" />
-      <entry key="M5" value="20.597223590171637" />
-      <entry key="M10" value="20.79277766945899" />
-      <entry key="M15" value="20.86049387551612" />
-      <entry key="M30" value="20.92955190964974" />
-      <entry key="H1" value="20.964599113441924" />
-      <entry key="H2" value="20.982254954571495" />
-      <entry key="H4" value="20.99111627737626" />
-      <entry key="D1" value="20.998517819810623" />
-      <entry key="W1" value="20.999788221719932" />
+      <entry key="MS100" value="1.0550803367940673E-9" />
+      <entry key="MS500" value="0.01601980059200928" />
+      <entry key="S2" value="0.35576586530864884" />
+      <entry key="S5" value="0.6614043470398603" />
+      <entry key="S10" value="0.8209356614723493" />
+      <entry key="S30" value="2.9651373002319925" />
+      <entry key="S60" value="9.82896871943145" />
+      <entry key="M2" value="24.200531464377192" />
+      <entry key="M5" value="56.741246567096745" />
+      <entry key="M10" value="84.17340491622373" />
+      <entry key="M15" value="98.1298905484404" />
+      <entry key="M30" value="116.13630145936972" />
+      <entry key="H1" value="127.1886718247483" />
+      <entry key="H2" value="133.3521685442296" />
+      <entry key="H4" value="136.6124654767109" />
+      <entry key="D1" value="139.4262989979363" />
+      <entry key="W1" value="139.9178158618518" />
     </decayedCancelled>
     <decayedSelected>
-      <entry key="MS100" value="0.0" />
-      <entry key="MS500" value="0.0" />
-      <entry key="S2" value="0.0" />
-      <entry key="S5" value="0.0" />
-      <entry key="S10" value="0.0" />
-      <entry key="S30" value="0.0" />
-      <entry key="S60" value="0.0" />
-      <entry key="M2" value="0.0" />
-      <entry key="M5" value="0.0" />
-      <entry key="M10" value="0.0" />
-      <entry key="M15" value="0.0" />
-      <entry key="M30" value="0.0" />
-      <entry key="H1" value="0.0" />
-      <entry key="H2" value="0.0" />
-      <entry key="H4" value="0.0" />
-      <entry key="D1" value="0.0" />
-      <entry key="W1" value="0.0" />
+      <entry key="MS100" value="1.0" />
+      <entry key="MS500" value="1.000000000000178" />
+      <entry key="S2" value="1.0006496723833402" />
+      <entry key="S5" value="1.0530979509969152" />
+      <entry key="S10" value="1.2304299272977786" />
+      <entry key="S30" value="1.6151223932015788" />
+      <entry key="S60" value="1.8687479701043523" />
+      <entry key="M2" value="2.4594887879808285" />
+      <entry key="M5" value="3.783019889551208" />
+      <entry key="M10" value="4.679311146592151" />
+      <entry key="M15" value="5.063737837638893" />
+      <entry key="M30" value="5.501421001175603" />
+      <entry key="H1" value="5.742579290727223" />
+      <entry key="H2" value="5.869187999063072" />
+      <entry key="H4" value="5.934059723239038" />
+      <entry key="D1" value="5.988934984046561" />
+      <entry key="W1" value="5.998417437382273" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.9726550606207791" />
-      <entry key="MS500" value="1.1324408941901023" />
-      <entry key="S2" value="5.301345259542041" />
-      <entry key="S5" value="11.171222372168394" />
-      <entry key="S10" value="14.82685443050473" />
-      <entry key="S30" value="18.17605234566957" />
-      <entry key="S60" value="19.333703575182035" />
-      <entry key="M2" value="20.068252271202535" />
-      <entry key="M5" value="20.59659912090232" />
-      <entry key="M10" value="20.792439374450268" />
-      <entry key="M15" value="20.860262119124688" />
-      <entry key="M30" value="20.929432802576684" />
-      <entry key="H1" value="20.96453873031606" />
-      <entry key="H2" value="20.982224552754023" />
-      <entry key="H4" value="20.99110102354286" />
-      <entry key="D1" value="20.998515270123583" />
-      <entry key="W1" value="20.99978785729775" />
+      <entry key="MS100" value="0.01369696532688562" />
+      <entry key="MS500" value="0.4395849823166184" />
+      <entry key="S2" value="1.1609341467435528" />
+      <entry key="S5" value="1.6237475401579222" />
+      <entry key="S10" value="1.9929185186192966" />
+      <entry key="S30" value="4.551232280764922" />
+      <entry key="S60" value="11.678600686123781" />
+      <entry key="M2" value="26.64210550124283" />
+      <entry key="M5" value="60.50774836607502" />
+      <entry key="M10" value="88.84090534878142" />
+      <entry key="M15" value="103.18468337202016" />
+      <entry key="M30" value="121.63261851661763" />
+      <entry key="H1" value="132.92851990201243" />
+      <entry key="H2" value="139.2199430847918" />
+      <entry key="H4" value="142.5458061007499" />
+      <entry key="D1" value="145.4151123781658" />
+      <entry key="W1" value="145.9162158838287" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -87,10 +131,12 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "CidrDebugProfileConversion": "true",
     "ModuleVcsDetector.initialDetectionPerformed": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
     "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.rust.reset.selective.auto.import": "true",
     "RunOnceActivity.typescript.service.memoryLimit.init": "true",
     "codeWithMe.voiceChat.enabledByDefault": "false",
     "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
@@ -103,10 +149,14 @@
     "node.js.selected.package.eslint": "(autodetect)",
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
+    "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
     "to.speed.mode.migration.done": "true",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
+  <component name="RustProjectSettings">
+    <option name="toolchainHomeDirectory" value="$USER_HOME$/.cargo/bin" />
+  </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
@@ -128,5 +178,19 @@
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="UnknownFeatures">
+    <option featureType="com.intellij.fileTypeFactory" implementationName="*.rs" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
   </component>
 </project>

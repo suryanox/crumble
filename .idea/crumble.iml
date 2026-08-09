@@ -2,7 +2,19 @@
 <module type="JAVA_MODULE" version="4">
   <component name="NewModuleRootManager" inherit-compiler-output="true">
     <exclude-output />
-    <content url="file://$MODULE_DIR$" />
+    <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$/crates/crumble-buffer/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/crumble-exec/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/crumble-index/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/crumble-ir/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/crumble-opt/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/crumble-sql/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/crumble-storage/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/crumble-tx/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/crumble-wal/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/crumble/src" isTestSource="false" />
+      <excludeFolder url="file://$MODULE_DIR$/target" />
+    </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
