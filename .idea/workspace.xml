@@ -1,7 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
   <component name="ChangeListManager">
     <list default="true" id="cf7745a6-b7f4-4a18-97a1-bb78fb58a366" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/docs/architecture/README.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/docs/design/README.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -11,6 +16,65 @@
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="NextEditCompletionFeaturesState">
+    <decayedCancelled>
+      <entry key="MS100" value="1.0000001162650711" />
+      <entry key="MS500" value="1.1387139695370043" />
+      <entry key="S2" value="5.308906568078952" />
+      <entry key="S5" value="11.17764702819449" />
+      <entry key="S10" value="14.831141398731372" />
+      <entry key="S30" value="18.17837198332615" />
+      <entry key="S60" value="19.335507280615314" />
+      <entry key="M2" value="20.06949788802204" />
+      <entry key="M5" value="20.597223590171637" />
+      <entry key="M10" value="20.79277766945899" />
+      <entry key="M15" value="20.86049387551612" />
+      <entry key="M30" value="20.92955190964974" />
+      <entry key="H1" value="20.964599113441924" />
+      <entry key="H2" value="20.982254954571495" />
+      <entry key="H4" value="20.99111627737626" />
+      <entry key="D1" value="20.998517819810623" />
+      <entry key="W1" value="20.999788221719932" />
+    </decayedCancelled>
+    <decayedSelected>
+      <entry key="MS100" value="0.0" />
+      <entry key="MS500" value="0.0" />
+      <entry key="S2" value="0.0" />
+      <entry key="S5" value="0.0" />
+      <entry key="S10" value="0.0" />
+      <entry key="S30" value="0.0" />
+      <entry key="S60" value="0.0" />
+      <entry key="M2" value="0.0" />
+      <entry key="M5" value="0.0" />
+      <entry key="M10" value="0.0" />
+      <entry key="M15" value="0.0" />
+      <entry key="M30" value="0.0" />
+      <entry key="H1" value="0.0" />
+      <entry key="H2" value="0.0" />
+      <entry key="H4" value="0.0" />
+      <entry key="D1" value="0.0" />
+      <entry key="W1" value="0.0" />
+    </decayedSelected>
+    <decayedShown>
+      <entry key="MS100" value="0.9726550606207791" />
+      <entry key="MS500" value="1.1324408941901023" />
+      <entry key="S2" value="5.301345259542041" />
+      <entry key="S5" value="11.171222372168394" />
+      <entry key="S10" value="14.82685443050473" />
+      <entry key="S30" value="18.17605234566957" />
+      <entry key="S60" value="19.333703575182035" />
+      <entry key="M2" value="20.068252271202535" />
+      <entry key="M5" value="20.59659912090232" />
+      <entry key="M10" value="20.792439374450268" />
+      <entry key="M15" value="20.860262119124688" />
+      <entry key="M30" value="20.929432802576684" />
+      <entry key="H1" value="20.96453873031606" />
+      <entry key="H2" value="20.982224552754023" />
+      <entry key="H4" value="20.99110102354286" />
+      <entry key="D1" value="20.998515270123583" />
+      <entry key="W1" value="20.99978785729775" />
+    </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 0,
@@ -34,6 +98,10 @@
     "junie.onboarding.icon.badge.shown": "true",
     "kotlin-language-version-configured": "true",
     "last_opened_file_path": "/Users/sooraj/Code/Projects/crumble",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
     "to.speed.mode.migration.done": "true",
     "vue.rearranger.settings.migration": "true"
