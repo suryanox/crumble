@@ -7,3 +7,4 @@ edition = "2024"
 thiserror = "2.0.20"
 crumble-storage = { path = "../crumble-storage" }
 crumble-ir = { path = "../crumble-ir" }
+crumble-sql = { path = "../crumble-sql" }
