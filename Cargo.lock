@@ -59,6 +59,9 @@ dependencies = [
 [[package]]
 name = "crumble-opt"
 version = "0.1.0"
+dependencies = [
+ "crumble-ir",
+]
 
 [[package]]
 name = "crumble-sql"

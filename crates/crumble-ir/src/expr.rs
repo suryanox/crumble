@@ -16,7 +16,7 @@ pub enum Literal {
     String(String),
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Copy)]
 pub enum BinaryOperator {
     Eq,
     NotEq,
