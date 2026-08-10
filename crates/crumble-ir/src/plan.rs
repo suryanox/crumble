@@ -1,5 +1,8 @@
 use crate::expr::Expr;
 
+/**
+* This tells what the query means
+ */
 #[derive(Debug, Clone, PartialEq)]
 pub enum LogicalPlan {
     Scan {
