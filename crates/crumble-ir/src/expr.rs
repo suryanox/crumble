@@ -6,7 +6,7 @@ pub enum Expr {
         left: Box<Expr>,
         op: BinaryOperator,
         right: Box<Expr>,
-    }
+    },
 }
 
 #[derive(Clone, Debug, PartialEq)]

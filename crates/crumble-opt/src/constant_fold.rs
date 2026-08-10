@@ -1,5 +1,5 @@
-use crumble_ir::{BinaryOperator, Expr, Literal, LogicalPlan};
 use crate::pass::OptimizationPass;
+use crumble_ir::{BinaryOperator, Expr, Literal, LogicalPlan};
 
 pub struct ConstantFold;
 
@@ -12,13 +12,13 @@ impl OptimizationPass for ConstantFold {
 fn fold_plan(plan: LogicalPlan) -> LogicalPlan {
     match plan {
         LogicalPlan::Scan { table } => LogicalPlan::Scan { table },
-        LogicalPlan::Filter {input, predicate} => LogicalPlan::Filter {
+        LogicalPlan::Filter { input, predicate } => LogicalPlan::Filter {
             input: Box::new(fold_plan(*input)),
             predicate: fold_expr(predicate),
         },
-        LogicalPlan::Project {input, columns} => LogicalPlan::Project {
+        LogicalPlan::Project { input, columns } => LogicalPlan::Project {
             input: Box::new(fold_plan(*input)),
-            columns
+            columns,
         },
     }
 }
@@ -37,8 +37,8 @@ fn fold_expr(expr: Expr) -> Expr {
                     right: Box::new(right),
                 },
             }
-        },
-        other => other
+        }
+        other => other,
     }
 }
 

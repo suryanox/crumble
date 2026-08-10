@@ -1,7 +1,9 @@
-use crumble_sql::Ast;
 use crate::{BinaryOperator, Expr, Literal, LogicalPlan, LowerError};
-use sqlparser::ast::{BinaryOperator as SqlBinaryOperator, Expr as SqlExpr, Select, SelectItem, SetExpr, Statement, TableFactor, TableWithJoins, Value as SqlValue};
-
+use crumble_sql::Ast;
+use sqlparser::ast::{
+    BinaryOperator as SqlBinaryOperator, Expr as SqlExpr, Select, SelectItem, SetExpr, Statement,
+    TableFactor, TableWithJoins, Value as SqlValue,
+};
 
 pub fn lower(ast: &Ast) -> Result<LogicalPlan, LowerError> {
     let statement = ast
@@ -48,11 +50,13 @@ fn lower_select(select: &Select) -> Result<LogicalPlan, LowerError> {
 
 fn lower_from(from: &[TableWithJoins]) -> Result<String, LowerError> {
     let [table_with_joins] = from else {
-        return Err(LowerError::Unsupported("queries must reference exactly one table".to_string()));
+        return Err(LowerError::Unsupported(
+            "queries must reference exactly one table".to_string(),
+        ));
     };
 
     match &table_with_joins.relation {
-        TableFactor::Table {name, ..} => Ok(name.to_string()),
+        TableFactor::Table { name, .. } => Ok(name.to_string()),
         other => Err(LowerError::Unsupported(format!("from clause: {other:?}"))),
     }
 }
@@ -62,7 +66,9 @@ fn lower_projection(projection: &[SelectItem]) -> Result<Vec<String>, LowerError
         .iter()
         .map(|item| match item {
             SelectItem::UnnamedExpr(SqlExpr::Identifier(ident)) => Ok(ident.value.clone()),
-            other => Err(LowerError::Unsupported(format!("projection item: {other:?}"))),
+            other => Err(LowerError::Unsupported(format!(
+                "projection item: {other:?}"
+            ))),
         })
         .collect()
 }
@@ -70,9 +76,7 @@ fn lower_projection(projection: &[SelectItem]) -> Result<Vec<String>, LowerError
 fn lower_expr(expr: &SqlExpr) -> Result<Expr, LowerError> {
     match expr {
         SqlExpr::Identifier(ident) => Ok(Expr::Column(ident.value.clone())),
-        SqlExpr::Value(value_with_span) => {
-            lower_value(&value_with_span.value).map(Expr::Literal)
-        }
+        SqlExpr::Value(value_with_span) => lower_value(&value_with_span.value).map(Expr::Literal),
         SqlExpr::BinaryOp { left, op, right } => Ok(Expr::BinaryOp {
             left: Box::new(lower_expr(left)?),
             op: lower_binary_operator(op)?,
@@ -104,10 +108,11 @@ fn lower_binary_operator(op: &SqlBinaryOperator) -> Result<BinaryOperator, Lower
         SqlBinaryOperator::GtEq => Ok(BinaryOperator::GtEq),
         SqlBinaryOperator::And => Ok(BinaryOperator::And),
         SqlBinaryOperator::Or => Ok(BinaryOperator::Or),
-        other => Err(LowerError::Unsupported(format!("binary operator: {other:?}"))),
+        other => Err(LowerError::Unsupported(format!(
+            "binary operator: {other:?}"
+        ))),
     }
 }
-
 
 #[cfg(test)]
 mod tests {

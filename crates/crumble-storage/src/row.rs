@@ -13,7 +13,7 @@ impl Row {
     pub fn new(values: Vec<Value>) -> Self {
         Self { values }
     }
-    
+
     pub fn values(&self) -> &[Value] {
         &self.values
     }

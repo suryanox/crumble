@@ -10,10 +10,10 @@ pub enum LogicalPlan {
     },
     Filter {
         input: Box<LogicalPlan>,
-        predicate: Expr
+        predicate: Expr,
     },
     Project {
         input: Box<LogicalPlan>,
         columns: Vec<String>,
-    }
+    },
 }

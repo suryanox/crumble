@@ -1,4 +1,3 @@
-
 /**
 Intentional choice to not reuse crumble_ir::Literal even though they look similar today.
 Reason: Literal is a syntax-level concept, Value is a runtime concept (What's actually stored)

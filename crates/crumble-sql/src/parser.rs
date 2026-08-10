@@ -1,16 +1,12 @@
-use sqlparser::{
-    dialect::GenericDialect,
-    parser::Parser,
-};
-use crate::ast::Ast;
 use crate::ParseError;
+use crate::ast::Ast;
+use sqlparser::{dialect::GenericDialect, parser::Parser};
 
 pub fn parse(sql: &str) -> Result<Ast, ParseError> {
-    let dialect = GenericDialect{};
-    let statements  = Parser::parse_sql(&dialect, sql)?;
-    Ok(Ast {statements})
+    let dialect = GenericDialect {};
+    let statements = Parser::parse_sql(&dialect, sql)?;
+    Ok(Ast { statements })
 }
-
 
 #[cfg(test)]
 mod tests {

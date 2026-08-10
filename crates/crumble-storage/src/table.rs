@@ -9,7 +9,6 @@ pub struct Table {
 }
 
 impl Table {
-
     // lets callers pass either &str or String
     pub fn new(name: impl Into<String>, columns: Vec<String>) -> Self {
         Self {
@@ -42,8 +41,6 @@ impl Table {
         Ok(())
     }
 }
-
-
 
 #[cfg(test)]
 mod tests {

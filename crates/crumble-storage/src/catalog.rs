@@ -1,6 +1,6 @@
-use std::collections::HashMap;
 use crate::error::StorageError;
 use crate::table::Table;
+use std::collections::HashMap;
 
 #[derive(Debug, Default)]
 pub struct Catalog {
@@ -39,7 +39,6 @@ impl Catalog {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -47,7 +46,9 @@ mod tests {
     #[test]
     fn create_table_rejects_duplicate() {
         let mut catalog = Catalog::new();
-        catalog.create_table("users", vec!["name".to_string()]).unwrap();
+        catalog
+            .create_table("users", vec!["name".to_string()])
+            .unwrap();
 
         let result = catalog.create_table("users", vec!["id".to_string()]);
 
