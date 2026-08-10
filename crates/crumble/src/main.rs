@@ -2,6 +2,7 @@ use std::env;
 use std::process::ExitCode;
 
 use crumble_ir::lower;
+use crumble_opt::{ConstantFold, OptimizationPass};
 use crumble_sql::parse;
 
 fn main() -> ExitCode {
@@ -26,6 +27,11 @@ fn main() -> ExitCode {
         }
     };
 
-    println!("{plan:#?}");
+    println!("logical plan:\n{plan:#?}\n");
+
+    let optimized = ConstantFold.apply(plan);
+
+    println!("optimized plan:\n{optimized:#?}");
+
     ExitCode::SUCCESS
 }

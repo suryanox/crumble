@@ -32,6 +32,7 @@ name = "crumble"
 version = "0.1.0"
 dependencies = [
  "crumble-ir",
+ "crumble-opt",
  "crumble-sql",
 ]
 

@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 crumble-sql = { path = "../crumble-sql" }
 crumble-ir = { path = "../crumble-ir" }
+crumble-opt = { path = "../crumble-opt" }
