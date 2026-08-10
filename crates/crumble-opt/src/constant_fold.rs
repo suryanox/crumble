@@ -23,7 +23,6 @@ fn fold_plan(plan: LogicalPlan) -> LogicalPlan {
     }
 }
 
-
 fn fold_expr(expr: Expr) -> Expr {
     match expr {
         Expr::BinaryOp { left, op, right } => {
@@ -43,6 +42,10 @@ fn fold_expr(expr: Expr) -> Expr {
     }
 }
 
+/**
+folding binary op returns option<Literal> bcz none means can't fold due to type mismatch or not possible
+not an error. Actually an optimizer pass should never fail.
+*/
 fn fold_binary_op(left: &Expr, op: BinaryOperator, right: &Expr) -> Option<Literal> {
     let (Expr::Literal(left), Expr::Literal(right)) = (left, right) else {
         return None;
