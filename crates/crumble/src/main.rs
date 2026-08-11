@@ -63,9 +63,7 @@ fn main() -> ExitCode {
             continue;
         }
 
-        if sql.eq_ignore_ascii_case("quit")
-            || sql.eq_ignore_ascii_case("exit")
-        {
+        if sql.eq_ignore_ascii_case("quit") || sql.eq_ignore_ascii_case("exit") {
             println!("{DIM}bye!{RESET}");
             break;
         }

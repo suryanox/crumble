@@ -138,6 +138,7 @@ fn eval_int(l: i64, op: BinaryOperator, r: i64) -> Result<Value, ExecError> {
         BinaryOperator::LtEq => Ok(Value::Bool(l <= r)),
         BinaryOperator::Gt => Ok(Value::Bool(l > r)),
         BinaryOperator::GtEq => Ok(Value::Bool(l >= r)),
+        BinaryOperator::Add => Ok(Value::Int(l + r)),
         BinaryOperator::And | BinaryOperator::Or => Err(ExecError::TypeMismatch),
     }
 }
@@ -148,9 +149,11 @@ fn eval_bool(l: bool, op: BinaryOperator, r: bool) -> Result<Value, ExecError> {
         BinaryOperator::NotEq => Ok(Value::Bool(l != r)),
         BinaryOperator::And => Ok(Value::Bool(l && r)),
         BinaryOperator::Or => Ok(Value::Bool(l || r)),
-        BinaryOperator::Lt | BinaryOperator::LtEq | BinaryOperator::Gt | BinaryOperator::GtEq => {
-            Err(ExecError::TypeMismatch)
-        }
+        BinaryOperator::Lt
+        | BinaryOperator::LtEq
+        | BinaryOperator::Gt
+        | BinaryOperator::GtEq
+        | BinaryOperator::Add => Err(ExecError::TypeMismatch),
     }
 }
 
@@ -162,7 +165,9 @@ fn eval_string(l: &str, op: BinaryOperator, r: &str) -> Result<Value, ExecError>
         BinaryOperator::LtEq => Ok(Value::Bool(l <= r)),
         BinaryOperator::Gt => Ok(Value::Bool(l > r)),
         BinaryOperator::GtEq => Ok(Value::Bool(l >= r)),
-        BinaryOperator::And | BinaryOperator::Or => Err(ExecError::TypeMismatch),
+        BinaryOperator::And | BinaryOperator::Or | BinaryOperator::Add => {
+            Err(ExecError::TypeMismatch)
+        }
     }
 }
 
@@ -174,6 +179,7 @@ fn eval_float(l: f64, op: BinaryOperator, r: f64) -> Result<Value, ExecError> {
         BinaryOperator::LtEq => Ok(Value::Bool(l <= r)),
         BinaryOperator::Gt => Ok(Value::Bool(l > r)),
         BinaryOperator::GtEq => Ok(Value::Bool(l >= r)),
+        BinaryOperator::Add => Ok(Value::Float(l + r)),
         BinaryOperator::And | BinaryOperator::Or => Err(ExecError::TypeMismatch),
     }
 }

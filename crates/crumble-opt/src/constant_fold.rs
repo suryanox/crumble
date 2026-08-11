@@ -77,6 +77,7 @@ fn fold_int(l: i64, op: BinaryOperator, r: i64) -> Option<Literal> {
         BinaryOperator::LtEq => Some(Literal::Bool(l <= r)),
         BinaryOperator::Gt => Some(Literal::Bool(l > r)),
         BinaryOperator::GtEq => Some(Literal::Bool(l >= r)),
+        BinaryOperator::Add => Some(Literal::Int(l + r)),
         BinaryOperator::And => None,
         BinaryOperator::Or => None,
     }
@@ -92,6 +93,7 @@ fn fold_bool(l: bool, op: BinaryOperator, r: bool) -> Option<Literal> {
         BinaryOperator::GtEq => None,
         BinaryOperator::And => Some(Literal::Bool(l && r)),
         BinaryOperator::Or => Some(Literal::Bool(l || r)),
+        BinaryOperator::Add => None,
     }
 }
 
@@ -105,6 +107,7 @@ fn fold_string(l: &str, op: BinaryOperator, r: &str) -> Option<Literal> {
         BinaryOperator::GtEq => Some(Literal::Bool(l >= r)),
         BinaryOperator::And => None,
         BinaryOperator::Or => None,
+        BinaryOperator::Add => None,
     }
 }
 
@@ -116,6 +119,7 @@ fn fold_float(l: f64, op: BinaryOperator, r: f64) -> Option<Literal> {
         BinaryOperator::LtEq => Some(Literal::Bool(l <= r)),
         BinaryOperator::Gt => Some(Literal::Bool(l > r)),
         BinaryOperator::GtEq => Some(Literal::Bool(l >= r)),
+        BinaryOperator::Add => Some(Literal::Float(l + r)),
         BinaryOperator::And => None,
         BinaryOperator::Or => None,
     }

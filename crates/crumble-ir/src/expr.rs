@@ -27,4 +27,5 @@ pub enum BinaryOperator {
     GtEq,
     And,
     Or,
+    Add,
 }

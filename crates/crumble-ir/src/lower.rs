@@ -144,9 +144,7 @@ fn lower_value(value: &SqlValue) -> Result<Literal, LowerError> {
             } else if let Ok(value) = num.parse::<f64>() {
                 Ok(Literal::Float(value))
             } else {
-                Err(LowerError::Unsupported(format!(
-                    "numeric literal: {num}"
-                )))
+                Err(LowerError::Unsupported(format!("numeric literal: {num}")))
             }
         }
         SqlValue::Boolean(b) => Ok(Literal::Bool(*b)),
@@ -165,6 +163,7 @@ fn lower_binary_operator(op: &SqlBinaryOperator) -> Result<BinaryOperator, Lower
         SqlBinaryOperator::GtEq => Ok(BinaryOperator::GtEq),
         SqlBinaryOperator::And => Ok(BinaryOperator::And),
         SqlBinaryOperator::Or => Ok(BinaryOperator::Or),
+        SqlBinaryOperator::Plus => Ok(BinaryOperator::Add),
         other => Err(LowerError::Unsupported(format!(
             "binary operator: {other:?}"
         ))),
@@ -239,5 +238,4 @@ mod tests {
         assert_eq!(plan, expected);
         Ok(())
     }
-
 }
