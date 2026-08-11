@@ -9,4 +9,5 @@ pub enum Value {
     Int(i64),
     Bool(bool),
     String(String),
+    Float(f64),
 }

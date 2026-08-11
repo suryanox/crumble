@@ -116,6 +116,7 @@ fn literal_to_value(literal: &Literal) -> Value {
         Literal::Int(n) => Value::Int(*n),
         Literal::Bool(b) => Value::Bool(*b),
         Literal::String(s) => Value::String(s.clone()),
+        Literal::Float(f) => Value::Float(*f),
     }
 }
 
@@ -124,6 +125,7 @@ fn eval_binary_op(left: Value, op: BinaryOperator, right: Value) -> Result<Value
         (Value::Int(l), Value::Int(r)) => eval_int(l, op, r),
         (Value::Bool(l), Value::Bool(r)) => eval_bool(l, op, r),
         (Value::String(l), Value::String(r)) => eval_string(&l, op, &r),
+        (Value::Float(l), Value::Float(r)) => eval_float(l, op, r),
         _ => Err(ExecError::TypeMismatch),
     }
 }
@@ -153,6 +155,18 @@ fn eval_bool(l: bool, op: BinaryOperator, r: bool) -> Result<Value, ExecError> {
 }
 
 fn eval_string(l: &str, op: BinaryOperator, r: &str) -> Result<Value, ExecError> {
+    match op {
+        BinaryOperator::Eq => Ok(Value::Bool(l == r)),
+        BinaryOperator::NotEq => Ok(Value::Bool(l != r)),
+        BinaryOperator::Lt => Ok(Value::Bool(l < r)),
+        BinaryOperator::LtEq => Ok(Value::Bool(l <= r)),
+        BinaryOperator::Gt => Ok(Value::Bool(l > r)),
+        BinaryOperator::GtEq => Ok(Value::Bool(l >= r)),
+        BinaryOperator::And | BinaryOperator::Or => Err(ExecError::TypeMismatch),
+    }
+}
+
+fn eval_float(l: f64, op: BinaryOperator, r: f64) -> Result<Value, ExecError> {
     match op {
         BinaryOperator::Eq => Ok(Value::Bool(l == r)),
         BinaryOperator::NotEq => Ok(Value::Bool(l != r)),

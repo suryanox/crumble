@@ -64,6 +64,7 @@ fn fold_binary_op(left: &Expr, op: BinaryOperator, right: &Expr) -> Option<Liter
         (Literal::Int(l), Literal::Int(r)) => fold_int(*l, op, *r),
         (Literal::Bool(l), Literal::Bool(r)) => fold_bool(*l, op, *r),
         (Literal::String(l), Literal::String(r)) => fold_string(l, op, r),
+        (Literal::Float(l), Literal::Float(r)) => fold_float(*l, op, *r),
         _ => None,
     }
 }
@@ -95,6 +96,19 @@ fn fold_bool(l: bool, op: BinaryOperator, r: bool) -> Option<Literal> {
 }
 
 fn fold_string(l: &str, op: BinaryOperator, r: &str) -> Option<Literal> {
+    match op {
+        BinaryOperator::Eq => Some(Literal::Bool(l == r)),
+        BinaryOperator::NotEq => Some(Literal::Bool(l != r)),
+        BinaryOperator::Lt => Some(Literal::Bool(l < r)),
+        BinaryOperator::LtEq => Some(Literal::Bool(l <= r)),
+        BinaryOperator::Gt => Some(Literal::Bool(l > r)),
+        BinaryOperator::GtEq => Some(Literal::Bool(l >= r)),
+        BinaryOperator::And => None,
+        BinaryOperator::Or => None,
+    }
+}
+
+fn fold_float(l: f64, op: BinaryOperator, r: f64) -> Option<Literal> {
     match op {
         BinaryOperator::Eq => Some(Literal::Bool(l == r)),
         BinaryOperator::NotEq => Some(Literal::Bool(l != r)),

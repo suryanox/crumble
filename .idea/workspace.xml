@@ -38,14 +38,13 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="cf7745a6-b7f4-4a18-97a1-bb78fb58a366" name="Changes" comment="add comment">
+    <list default="true" id="cf7745a6-b7f4-4a18-97a1-bb78fb58a366" name="Changes" comment="repl">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/crumble-exec/src/error.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-exec/src/error.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/crumble-exec/src/interpret.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-exec/src/interpret.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/crumble-ir/src/expr.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-ir/src/expr.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/crumble-ir/src/lower.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-ir/src/lower.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/crumble-ir/src/physical.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-ir/src/physical.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/crumble-ir/src/plan.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-ir/src/plan.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/crumble-ir/src/to_physical.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-ir/src/to_physical.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/crumble-opt/src/constant_fold.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-opt/src/constant_fold.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/crumble-storage/src/value.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-storage/src/value.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -69,61 +68,61 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="2.292042511866037E-19" />
-      <entry key="MS500" value="1.8708739766572517E-4" />
-      <entry key="S2" value="0.1180556906485576" />
-      <entry key="S5" value="0.5629538722180968" />
-      <entry key="S10" value="1.9330617557936949" />
-      <entry key="S30" value="16.857501744731913" />
-      <entry key="S60" value="42.97442769925869" />
-      <entry key="M2" value="80.43599554578535" />
-      <entry key="M5" value="133.42727911417086" />
-      <entry key="M10" value="164.08163876259425" />
-      <entry key="M15" value="176.7565802486191" />
-      <entry key="M30" value="190.98118072568" />
-      <entry key="H1" value="198.74941884992322" />
-      <entry key="H2" value="202.8755463200524" />
-      <entry key="H4" value="214.32027837448868" />
-      <entry key="D1" value="1300.4058229387783" />
-      <entry key="W1" value="2849.6779699676185" />
+      <entry key="MS100" value="1.0" />
+      <entry key="MS500" value="1.0" />
+      <entry key="S2" value="1.0000000000041485" />
+      <entry key="S5" value="1.0000963808329522" />
+      <entry key="S10" value="1.0291788110936604" />
+      <entry key="S30" value="2.4547304002595576" />
+      <entry key="S60" value="6.116632249605493" />
+      <entry key="M2" value="14.817016379673197" />
+      <entry key="M5" value="35.052147724871986" />
+      <entry key="M10" value="51.237988220016526" />
+      <entry key="M15" value="60.338866285405054" />
+      <entry key="M30" value="93.03946532669848" />
+      <entry key="H1" value="174.2117454959685" />
+      <entry key="H2" value="279.5138705825681" />
+      <entry key="H4" value="373.1061967860344" />
+      <entry key="D1" value="1495.5114166825372" />
+      <entry key="W1" value="3106.389681428621" />
     </decayedCancelled>
     <decayedSelected>
-      <entry key="MS100" value="1.0000000000000002" />
-      <entry key="MS500" value="1.000718043840889" />
-      <entry key="S2" value="1.252616533630356" />
-      <entry key="S5" value="2.341721392984308" />
-      <entry key="S10" value="4.130924809779016" />
-      <entry key="S30" value="8.800542157858516" />
-      <entry key="S60" value="13.948328989676149" />
-      <entry key="M2" value="21.702081157934003" />
-      <entry key="M5" value="32.88907986858514" />
-      <entry key="M10" value="39.2552171007956" />
-      <entry key="M15" value="41.85779709954859" />
-      <entry key="M30" value="44.75830263122071" />
-      <entry key="H1" value="46.33353256179969" />
-      <entry key="H2" value="47.16932941268822" />
-      <entry key="H4" value="48.99652569049779" />
-      <entry key="D1" value="169.3450718163562" />
-      <entry key="W1" value="331.103100991564" />
+      <entry key="MS100" value="0.0" />
+      <entry key="MS500" value="2.4986156312424843E-179" />
+      <entry key="S2" value="2.2357583589336568E-45" />
+      <entry key="S5" value="1.3796532402306689E-18" />
+      <entry key="S10" value="1.1745864124153201E-9" />
+      <entry key="S30" value="0.0010551472908472994" />
+      <entry key="S60" value="0.03288969667155691" />
+      <entry key="M2" value="0.2203188503796705" />
+      <entry key="M5" value="1.137417530119919" />
+      <entry key="M10" value="2.3082771363928587" />
+      <entry key="M15" value="3.091875352049952" />
+      <entry key="M30" value="6.393639827511335" />
+      <entry key="H1" value="15.674817814932293" />
+      <entry key="H2" value="28.44615281719163" />
+      <entry key="H4" value="40.28957887801602" />
+      <entry key="D1" value="166.21539898427147" />
+      <entry key="W1" value="335.2183235190004" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.0020360659391428157" />
-      <entry key="MS500" value="0.2898997333936916" />
-      <entry key="S2" value="1.0186930795899583" />
-      <entry key="S5" value="2.565888057662623" />
-      <entry key="S10" value="5.704554287362982" />
-      <entry key="S30" value="25.344256300609764" />
-      <entry key="S60" value="56.6349773515984" />
-      <entry key="M2" value="101.88675920706127" />
-      <entry key="M5" value="166.15139218871616" />
-      <entry key="M10" value="203.2356495829943" />
-      <entry key="M15" value="218.54175989949294" />
-      <entry key="M30" value="235.700293105975" />
-      <entry key="H1" value="245.06257095424098" />
-      <entry key="H2" value="250.03447513397055" />
-      <entry key="H4" value="263.3113181486973" />
-      <entry key="D1" value="1469.7468474375203" />
-      <entry key="W1" value="3180.779889425161" />
+      <entry key="MS100" value="0.032803646363220855" />
+      <entry key="MS500" value="0.5048756487983429" />
+      <entry key="S2" value="0.8429389192566916" />
+      <entry key="S5" value="0.9340350384385327" />
+      <entry key="S10" value="0.995553670409638" />
+      <entry key="S30" value="2.443535466460159" />
+      <entry key="S60" value="6.140480034724993" />
+      <entry key="M2" value="15.026349424978667" />
+      <entry key="M5" value="36.17180526033876" />
+      <entry key="M10" value="53.5290332886828" />
+      <entry key="M15" value="63.41594417410756" />
+      <entry key="M30" value="99.42151959198475" />
+      <entry key="H1" value="189.87625313586557" />
+      <entry key="H2" value="307.9519116233064" />
+      <entry key="H4" value="413.3903162569032" />
+      <entry key="D1" value="1661.7227150808665" />
+      <entry key="W1" value="3441.606791439012" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -139,6 +138,7 @@
   "keyToString": {
     "Cargo.Test catalog::tests::create_table_rejects_duplicate.executor": "Run",
     "Cargo.Test constant_fold::tests.executor": "Run",
+    "Cargo.Test lower::tests.executor": "Run",
     "CidrDebugProfileConversion": "true",
     "ModuleVcsDetector.initialDetectionPerformed": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
@@ -164,7 +164,7 @@
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
-  <component name="RunManager" selected="Cargo.Test catalog::tests::create_table_rejects_duplicate">
+  <component name="RunManager" selected="Cargo.Test lower::tests::lowers_select_with_filter_float">
     <configuration name="Test catalog::tests::create_table_rejects_duplicate" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
       <option name="command" value="test --package crumble-storage --lib -- catalog::tests::create_table_rejects_duplicate --exact" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$" />
@@ -200,8 +200,44 @@
         <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
       </method>
     </configuration>
+    <configuration name="Test lower::tests" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="command" value="test --package crumble-ir --lib -- lower::tests" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Test lower::tests::lowers_select_with_filter_float" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="command" value="test --package crumble-ir --lib -- lower::tests::lowers_select_with_filter_float --exact" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Cargo.Test lower::tests::lowers_select_with_filter_float" />
+        <item itemvalue="Cargo.Test lower::tests" />
         <item itemvalue="Cargo.Test catalog::tests::create_table_rejects_duplicate" />
         <item itemvalue="Cargo.Test constant_fold::tests" />
       </list>
@@ -248,6 +284,8 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="add comment" />
-    <option name="LAST_COMMIT_MESSAGE" value="add comment" />
+    <MESSAGE value="add insert support" />
+    <MESSAGE value="repl" />
+    <option name="LAST_COMMIT_MESSAGE" value="repl" />
   </component>
 </project>

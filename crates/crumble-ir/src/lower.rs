@@ -16,7 +16,7 @@ pub fn lower(ast: &Ast) -> Result<LogicalPlan, LowerError> {
 
 fn lower_statement(statement: &Statement) -> Result<LogicalPlan, LowerError> {
     match statement {
-        Statement::Query(query) => lower_set_expr(&query.body),
+        Statement::Query(query) => lower_select_expr(&query.body),
         Statement::Insert(insert) => lower_insert(insert),
         other => Err(LowerError::Unsupported(format!("statement: {other:?}"))),
     }
@@ -70,7 +70,7 @@ fn lower_literal_expr(expr: &SqlExpr) -> Result<Literal, LowerError> {
         other => Err(LowerError::Unsupported(format!("VALUES entry: {other:?}"))),
     }
 }
-fn lower_set_expr(set_expr: &SetExpr) -> Result<LogicalPlan, LowerError> {
+fn lower_select_expr(set_expr: &SetExpr) -> Result<LogicalPlan, LowerError> {
     match set_expr {
         SetExpr::Select(select) => lower_select(select),
         other => Err(LowerError::Unsupported(format!("query body: {other:?}"))),
@@ -137,10 +137,18 @@ fn lower_expr(expr: &SqlExpr) -> Result<Expr, LowerError> {
 
 fn lower_value(value: &SqlValue) -> Result<Literal, LowerError> {
     match value {
-        SqlValue::Number(num, _) => num
-            .parse::<i64>()
-            .map(Literal::Int)
-            .map_err(|_| LowerError::Unsupported(format!("numeric literal: {num}"))),
+        // hasDecimal seems broken currently, I can't think of a better way currently
+        SqlValue::Number(num, _) => {
+            if let Ok(value) = num.parse::<i64>() {
+                Ok(Literal::Int(value))
+            } else if let Ok(value) = num.parse::<f64>() {
+                Ok(Literal::Float(value))
+            } else {
+                Err(LowerError::Unsupported(format!(
+                    "numeric literal: {num}"
+                )))
+            }
+        }
         SqlValue::Boolean(b) => Ok(Literal::Bool(*b)),
         SqlValue::SingleQuotedString(s) => Ok(Literal::String(s.clone())),
         other => Err(LowerError::Unsupported(format!("literal: {other:?}"))),
@@ -208,4 +216,28 @@ mod tests {
         assert_eq!(plan, expected);
         Ok(())
     }
+
+    #[test]
+    fn lowers_select_with_filter_float() -> Result<(), Box<dyn std::error::Error>> {
+        let ast = parse("SELECT name FROM users WHERE salary > 30.12894")?;
+        let plan = lower(&ast)?;
+
+        let expected = LogicalPlan::Project {
+            input: Box::new(LogicalPlan::Filter {
+                input: Box::new(LogicalPlan::Scan {
+                    table: "users".to_string(),
+                }),
+                predicate: Expr::BinaryOp {
+                    left: Box::new(Expr::Column("salary".to_string())),
+                    op: BinaryOperator::Gt,
+                    right: Box::new(Expr::Literal(Literal::Float(30.12894))),
+                },
+            }),
+            columns: vec!["name".to_string()],
+        };
+
+        assert_eq!(plan, expected);
+        Ok(())
+    }
+
 }
