@@ -238,4 +238,25 @@ mod tests {
         assert_eq!(plan, expected);
         Ok(())
     }
+
+    #[test]
+    fn lowers_float_literal() -> Result<(), Box<dyn std::error::Error>> {
+        let ast = parse("SELECT name FROM users WHERE age > 22.5")?;
+        let plan = lower(&ast)?;
+
+        match plan {
+            LogicalPlan::Project { input, .. } => match *input {
+                LogicalPlan::Filter { predicate, .. } => match predicate {
+                    Expr::BinaryOp { right, .. } => match *right {
+                        Expr::Literal(Literal::Float(f)) => assert_eq!(f, 22.5),
+                        other => panic!("expected Float literal, got {other:?}"),
+                    },
+                    other => panic!("expected Filter, got {other:?}"),
+                },
+                other => panic!("expected Filter, got {other:?}"),
+            },
+            other => panic!("expected Project, got {other:?}"),
+        }
+        Ok(())
+    }
 }

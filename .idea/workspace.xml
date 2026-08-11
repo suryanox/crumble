@@ -165,8 +165,9 @@
   }
 }]]></component>
   <component name="RunManager" selected="Cargo.Test lower::tests">
-    <configuration name="Test catalog::tests::create_table_rejects_duplicate" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
-      <option name="command" value="test --package crumble-storage --lib -- catalog::tests::create_table_rejects_duplicate --exact" />
+    <configuration name="Test constant_fold::tests" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="buildProfileId" value="test" />
+      <option name="command" value="test --package crumble-opt --lib -- constant_fold::tests" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$" />
       <envs />
       <option name="emulateTerminal" value="true" />
@@ -182,9 +183,25 @@
         <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
       </method>
     </configuration>
-    <configuration name="Test constant_fold::tests" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
-      <option name="buildProfileId" value="test" />
-      <option name="command" value="test --package crumble-opt --lib -- constant_fold::tests" />
+    <configuration name="Test constant_fold::tests::folds_float_comparison" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="command" value="test --package crumble-opt --lib -- constant_fold::tests::folds_float_comparison --exact" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Test interpret::tests" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="command" value="test --package crumble-exec --lib -- interpret::tests" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$" />
       <envs />
       <option name="emulateTerminal" value="true" />
@@ -237,9 +254,10 @@
     <recent_temporary>
       <list>
         <item itemvalue="Cargo.Test lower::tests" />
-        <item itemvalue="Cargo.Test lower::tests::lowers_select_with_filter_float" />
-        <item itemvalue="Cargo.Test catalog::tests::create_table_rejects_duplicate" />
+        <item itemvalue="Cargo.Test constant_fold::tests::folds_float_comparison" />
         <item itemvalue="Cargo.Test constant_fold::tests" />
+        <item itemvalue="Cargo.Test interpret::tests" />
+        <item itemvalue="Cargo.Test lower::tests::lowers_select_with_filter_float" />
       </list>
     </recent_temporary>
   </component>

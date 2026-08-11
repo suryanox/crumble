@@ -173,4 +173,30 @@ mod tests {
 
         assert_eq!(folded, plan);
     }
+
+    #[test]
+    fn folds_float_comparison() {
+        let plan = LogicalPlan::Filter {
+            input: Box::new(LogicalPlan::Scan {
+                table: "users".to_string(),
+            }),
+            predicate: Expr::BinaryOp {
+                left: Box::new(Expr::Literal(Literal::Float(1.5))),
+                op: BinaryOperator::Gt,
+                right: Box::new(Expr::Literal(Literal::Float(0.5))),
+            },
+        };
+
+        let folded = ConstantFold.apply(plan);
+
+        assert_eq!(
+            folded,
+            LogicalPlan::Filter {
+                input: Box::new(LogicalPlan::Scan {
+                    table: "users".to_string()
+                }),
+                predicate: Expr::Literal(Literal::Bool(true)),
+            }
+        );
+    }
 }

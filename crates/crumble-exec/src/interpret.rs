@@ -265,4 +265,33 @@ mod tests {
         );
         Ok(())
     }
+
+    #[test]
+    fn filters_float_values() -> Result<(), Box<dyn std::error::Error>> {
+        let mut catalog = Catalog::new();
+        catalog
+            .create_table("metrics", vec!["label".to_string(), "score".to_string()])
+            .unwrap();
+        let table = catalog.get_mut("metrics").unwrap();
+        table
+            .insert(Row::new(vec![
+                Value::String("a".into()),
+                Value::Float(3.14),
+            ]))
+            .unwrap();
+        table
+            .insert(Row::new(vec![
+                Value::String("b".into()),
+                Value::Float(2.71),
+            ]))
+            .unwrap();
+
+        let ast = parse("SELECT label FROM metrics WHERE score > 3.0")?;
+        let logical = lower(&ast)?;
+        let physical = to_physical(logical);
+        let result = execute(&physical, &mut catalog)?;
+
+        assert_eq!(result.rows(), &[Row::new(vec![Value::String("a".into())])]);
+        Ok(())
+    }
 }
