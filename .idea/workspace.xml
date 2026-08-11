@@ -38,13 +38,7 @@
     </cargoProject>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="cf7745a6-b7f4-4a18-97a1-bb78fb58a366" name="Changes" comment="repl">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/crumble-exec/src/interpret.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-exec/src/interpret.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/crumble-ir/src/expr.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-ir/src/expr.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/crumble-ir/src/lower.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-ir/src/lower.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/crumble-opt/src/constant_fold.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-opt/src/constant_fold.rs" afterDir="false" />
-    </list>
+    <list default="true" id="cf7745a6-b7f4-4a18-97a1-bb78fb58a366" name="Changes" comment="repl" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -67,61 +61,61 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.3996491513181752E-13" />
-      <entry key="MS500" value="0.002686605113554232" />
-      <entry key="S2" value="0.2277498296372963" />
-      <entry key="S5" value="0.5765583678840945" />
-      <entry key="S10" value="0.9077207994595219" />
-      <entry key="S30" value="1.8221702031290326" />
-      <entry key="S60" value="2.8619761638890924" />
-      <entry key="M2" value="5.822094598313434" />
-      <entry key="M5" value="28.966950792616835" />
-      <entry key="M10" value="68.23770410547432" />
-      <entry key="M15" value="94.80008639308124" />
-      <entry key="M30" value="149.5862659821124" />
-      <entry key="H1" value="242.01424143017118" />
-      <entry key="H2" value="358.50078483742897" />
-      <entry key="H4" value="463.16356699520827" />
-      <entry key="D1" value="1593.7667046472925" />
-      <entry key="W1" value="3212.9867973569058" />
+      <entry key="MS100" value="1.3387285658021233" />
+      <entry key="MS500" value="3.440951075200173" />
+      <entry key="S2" value="7.052154420171523" />
+      <entry key="S5" value="8.635501217983592" />
+      <entry key="S10" value="9.283672612033481" />
+      <entry key="S30" value="10.534478926324544" />
+      <entry key="S60" value="15.321971678136297" />
+      <entry key="M2" value="26.488533080073495" />
+      <entry key="M5" value="54.795322550909624" />
+      <entry key="M10" value="96.38283130717186" />
+      <entry key="M15" value="126.50754869428188" />
+      <entry key="M30" value="188.02642250918944" />
+      <entry key="H1" value="285.0899395880076" />
+      <entry key="H2" value="405.99979915779215" />
+      <entry key="H4" value="514.8214268802179" />
+      <entry key="D1" value="1648.727911427823" />
+      <entry key="W1" value="3270.8341723469384" />
     </decayedCancelled>
     <decayedSelected>
-      <entry key="MS100" value="1.0" />
-      <entry key="MS500" value="1.0" />
-      <entry key="S2" value="1.0000002750691308" />
-      <entry key="S5" value="1.0034176713610976" />
-      <entry key="S10" value="1.093161784714899" />
-      <entry key="S30" value="2.1020903460540534" />
-      <entry key="S60" value="3.450164724809432" />
-      <entry key="M2" value="5.132371382534176" />
-      <entry key="M5" value="7.30374494224363" />
-      <entry key="M10" value="9.095296777777229" />
-      <entry key="M15" value="10.299661255390042" />
-      <entry key="M30" value="13.81387737963453" />
-      <entry key="H1" value="22.760674703144595" />
-      <entry key="H2" value="35.831798809136956" />
-      <entry key="H4" value="48.434524904384155" />
-      <entry key="D1" value="174.96251249827398" />
-      <entry key="W1" value="344.8583442709145" />
+      <entry key="MS100" value="0.0" />
+      <entry key="MS500" value="2.546567121788282E-187" />
+      <entry key="S2" value="2.2464093671235715E-47" />
+      <entry key="S5" value="2.198250891523706E-19" />
+      <entry key="S10" value="5.116608610974133E-10" />
+      <entry key="S30" value="0.0016321145250923698" />
+      <entry key="S60" value="0.09613675450018874" />
+      <entry key="M2" value="0.8567278556295821" />
+      <entry key="M5" value="3.5690737634857825" />
+      <entry key="M10" value="6.358019230967829" />
+      <entry key="M15" value="8.112591034229137" />
+      <entry key="M30" value="12.259815021024908" />
+      <entry key="H1" value="21.4421975198787" />
+      <entry key="H2" value="34.77848752711119" />
+      <entry key="H4" value="47.71732442437352" />
+      <entry key="D1" value="174.5280273509214" />
+      <entry key="W1" value="344.7358726966756" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.6836223986900265E-6" />
-      <entry key="MS500" value="0.07217052553084086" />
-      <entry key="S2" value="0.7297244352545967" />
-      <entry key="S5" value="1.332763599677958" />
-      <entry key="S10" value="1.8574151429823833" />
-      <entry key="S30" value="3.83574462694577" />
-      <entry key="S60" value="6.2384411672368945" />
-      <entry key="M2" value="10.89756530683009" />
-      <entry key="M5" value="36.23571840217053" />
-      <entry key="M10" value="77.30781943776749" />
-      <entry key="M15" value="105.0788539544056" />
-      <entry key="M30" value="163.38475409004" />
-      <entry key="H1" value="264.7625226077604" />
-      <entry key="H2" value="394.32324551388984" />
-      <entry key="H4" value="511.591902006168" />
-      <entry key="D1" value="1768.7249842015217" />
-      <entry key="W1" value="3557.8439061120866" />
+      <entry key="MS100" value="1.2753672942851684" />
+      <entry key="MS500" value="3.406937079196263" />
+      <entry key="S2" value="7.033037977635691" />
+      <entry key="S5" value="8.625875025432565" />
+      <entry key="S10" value="9.278447965986324" />
+      <entry key="S30" value="10.534075805497968" />
+      <entry key="S60" value="15.414700609147081" />
+      <entry key="M2" value="27.33469205480064" />
+      <entry key="M5" value="58.346648212147485" />
+      <entry key="M10" value="102.72285965732662" />
+      <entry key="M15" value="134.6034084388414" />
+      <entry key="M30" value="200.27243395262" />
+      <entry key="H1" value="306.5203864592356" />
+      <entry key="H2" value="440.7691849482043" />
+      <entry key="H4" value="562.5326338674719" />
+      <entry key="D1" value="1823.2517131254854" />
+      <entry key="W1" value="3615.5688095060214" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -137,6 +131,8 @@
   "keyToString": {
     "Cargo.Test catalog::tests::create_table_rejects_duplicate.executor": "Run",
     "Cargo.Test constant_fold::tests.executor": "Run",
+    "Cargo.Test constant_fold::tests::folds_float_comparison.executor": "Run",
+    "Cargo.Test interpret::tests.executor": "Run",
     "Cargo.Test lower::tests.executor": "Run",
     "Cargo.Test lower::tests::lowers_select_with_filter_float.executor": "Run",
     "CidrDebugProfileConversion": "true",
@@ -164,7 +160,7 @@
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
-  <component name="RunManager" selected="Cargo.Test lower::tests">
+  <component name="RunManager" selected="Cargo.Test constant_fold::tests">
     <configuration name="Test constant_fold::tests" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
       <option name="buildProfileId" value="test" />
       <option name="command" value="test --package crumble-opt --lib -- constant_fold::tests" />
@@ -253,9 +249,9 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Cargo.Test constant_fold::tests" />
         <item itemvalue="Cargo.Test lower::tests" />
         <item itemvalue="Cargo.Test constant_fold::tests::folds_float_comparison" />
-        <item itemvalue="Cargo.Test constant_fold::tests" />
         <item itemvalue="Cargo.Test interpret::tests" />
         <item itemvalue="Cargo.Test lower::tests::lowers_select_with_filter_float" />
       </list>

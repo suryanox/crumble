@@ -294,4 +294,16 @@ mod tests {
         assert_eq!(result.rows(), &[Row::new(vec![Value::String("a".into())])]);
         Ok(())
     }
+
+    #[test]
+    fn executes_int_addition() -> Result<(), Box<dyn std::error::Error>> {
+        let mut catalog = seeded_catalog();
+        let ast = parse("SELECT name FROM users WHERE age > 20 + 1")?;
+        let logical = lower(&ast)?;
+        let physical = to_physical(logical);
+        let result = execute(&physical, &mut catalog)?;
+
+        assert_eq!(result.rows().len(), 2);
+        Ok(())
+    }
 }

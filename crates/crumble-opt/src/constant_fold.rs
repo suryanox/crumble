@@ -199,4 +199,56 @@ mod tests {
             }
         );
     }
+
+    #[test]
+    fn folds_int_addition() {
+        let plan = LogicalPlan::Filter {
+            input: Box::new(LogicalPlan::Scan {
+                table: "t".to_string(),
+            }),
+            predicate: Expr::BinaryOp {
+                left: Box::new(Expr::Literal(Literal::Int(2))),
+                op: BinaryOperator::Add,
+                right: Box::new(Expr::Literal(Literal::Int(3))),
+            },
+        };
+
+        let folded = ConstantFold.apply(plan);
+
+        assert_eq!(
+            folded,
+            LogicalPlan::Filter {
+                input: Box::new(LogicalPlan::Scan {
+                    table: "t".to_string()
+                }),
+                predicate: Expr::Literal(Literal::Int(5)),
+            }
+        );
+    }
+
+    #[test]
+    fn folds_float_addition() {
+        let plan = LogicalPlan::Filter {
+            input: Box::new(LogicalPlan::Scan {
+                table: "t".to_string(),
+            }),
+            predicate: Expr::BinaryOp {
+                left: Box::new(Expr::Literal(Literal::Float(1.5))),
+                op: BinaryOperator::Add,
+                right: Box::new(Expr::Literal(Literal::Float(2.5))),
+            },
+        };
+
+        let folded = ConstantFold.apply(plan);
+
+        assert_eq!(
+            folded,
+            LogicalPlan::Filter {
+                input: Box::new(LogicalPlan::Scan {
+                    table: "t".to_string()
+                }),
+                predicate: Expr::Literal(Literal::Float(4.0)),
+            }
+        );
+    }
 }
