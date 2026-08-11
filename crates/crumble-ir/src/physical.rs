@@ -1,3 +1,4 @@
+use crate::Literal;
 use crate::expr::Expr;
 
 /**
@@ -16,5 +17,10 @@ pub enum PhysicalPlan {
     Project {
         input: Box<PhysicalPlan>,
         columns: Vec<String>,
+    },
+    Insert {
+        table: String,
+        columns: Vec<String>,
+        rows: Vec<Vec<Literal>>,
     },
 }

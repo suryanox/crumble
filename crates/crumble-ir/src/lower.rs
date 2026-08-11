@@ -1,8 +1,8 @@
 use crate::{BinaryOperator, Expr, Literal, LogicalPlan, LowerError};
 use crumble_sql::Ast;
 use sqlparser::ast::{
-    BinaryOperator as SqlBinaryOperator, Expr as SqlExpr, Select, SelectItem, SetExpr, Statement,
-    TableFactor, TableWithJoins, Value as SqlValue,
+    BinaryOperator as SqlBinaryOperator, Expr as SqlExpr, Insert, Select, SelectItem, SetExpr,
+    Statement, TableFactor, TableWithJoins, Value as SqlValue,
 };
 
 pub fn lower(ast: &Ast) -> Result<LogicalPlan, LowerError> {
@@ -17,10 +17,59 @@ pub fn lower(ast: &Ast) -> Result<LogicalPlan, LowerError> {
 fn lower_statement(statement: &Statement) -> Result<LogicalPlan, LowerError> {
     match statement {
         Statement::Query(query) => lower_set_expr(&query.body),
+        Statement::Insert(insert) => lower_insert(insert),
         other => Err(LowerError::Unsupported(format!("statement: {other:?}"))),
     }
 }
 
+fn lower_insert(insert: &Insert) -> Result<LogicalPlan, LowerError> {
+    let table = insert.table.to_string();
+
+    let columns = insert
+        .columns
+        .iter()
+        .map(|ident| {
+            ident
+                .0
+                .last()
+                .map(|v| {
+                    v.as_ident()
+                        .ok_or_else(|| LowerError::Unsupported("invalid column".to_string()))
+                        .map(|p| p.value.to_string())
+                })
+                .ok_or_else(|| LowerError::Unsupported("empty column".to_string()))?
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let query = insert
+        .source
+        .as_ref()
+        .ok_or_else(|| LowerError::Unsupported("INSERT without VALUES".to_string()))?;
+
+    let values = match query.body.as_ref() {
+        SetExpr::Values(values) => values,
+        other => return Err(LowerError::Unsupported(format!("INSERT source: {other:?}"))),
+    };
+
+    let rows = values
+        .rows
+        .iter()
+        .map(|row| row.iter().map(lower_literal_expr).collect())
+        .collect::<Result<Vec<Vec<Literal>>, LowerError>>()?;
+
+    Ok(LogicalPlan::Insert {
+        table,
+        columns,
+        rows,
+    })
+}
+
+fn lower_literal_expr(expr: &SqlExpr) -> Result<Literal, LowerError> {
+    match expr {
+        SqlExpr::Value(value_with_span) => lower_value(&value_with_span.value),
+        other => Err(LowerError::Unsupported(format!("VALUES entry: {other:?}"))),
+    }
+}
 fn lower_set_expr(set_expr: &SetExpr) -> Result<LogicalPlan, LowerError> {
     match set_expr {
         SetExpr::Select(select) => lower_select(select),

@@ -4,8 +4,8 @@ use std::process::ExitCode;
 use crumble_exec::execute;
 use crumble_ir::{lower, to_physical};
 use crumble_opt::{ConstantFold, OptimizationPass};
-use crumble_storage::{Catalog, Row, Value};
 use crumble_sql::parse;
+use crumble_storage::{Catalog, Row, Value};
 
 fn seeded_catalog() -> Catalog {
     let mut catalog = Catalog::new();
@@ -57,9 +57,13 @@ fn main() -> ExitCode {
     let optimized = ConstantFold.apply(logical);
     let physical = to_physical(optimized);
 
-    let catalog = seeded_catalog();
+    let mut catalog = seeded_catalog();
 
-    match execute(&physical, &catalog) {
+    match execute(&physical, &mut catalog) {
+        Ok(result) if result.columns().is_empty() => {
+            println!("OK");
+            ExitCode::SUCCESS
+        }
         Ok(result) => {
             println!("{:?}", result.columns());
             for row in result.rows() {

@@ -1,3 +1,4 @@
+use crate::Literal;
 use crate::expr::Expr;
 
 /**
@@ -15,5 +16,10 @@ pub enum LogicalPlan {
     Project {
         input: Box<LogicalPlan>,
         columns: Vec<String>,
+    },
+    Insert {
+        table: String,
+        columns: Vec<String>,
+        rows: Vec<Vec<Literal>>,
     },
 }

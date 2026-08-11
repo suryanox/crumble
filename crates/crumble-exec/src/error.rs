@@ -11,4 +11,7 @@ pub enum ExecError {
 
     #[error("type mismatch: cannot apply operator to give operand types")]
     TypeMismatch,
+
+    #[error("missing value for column: {0}")]
+    MissingColumn(String),
 }

@@ -15,5 +15,14 @@ pub fn to_physical(plan: LogicalPlan) -> PhysicalPlan {
             input: Box::new(to_physical(*input)),
             columns,
         },
+        LogicalPlan::Insert {
+            table,
+            columns,
+            rows,
+        } => PhysicalPlan::Insert {
+            table,
+            columns,
+            rows,
+        },
     }
 }

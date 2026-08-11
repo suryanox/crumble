@@ -20,6 +20,15 @@ fn fold_plan(plan: LogicalPlan) -> LogicalPlan {
             input: Box::new(fold_plan(*input)),
             columns,
         },
+        LogicalPlan::Insert {
+            table,
+            columns,
+            rows,
+        } => LogicalPlan::Insert {
+            table,
+            columns,
+            rows,
+        },
     }
 }
 

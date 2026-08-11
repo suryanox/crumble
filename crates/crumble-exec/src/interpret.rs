@@ -1,9 +1,10 @@
-use crate::error::ExecError;
-use crate::row_set::RowSet;
 use crumble_ir::{BinaryOperator, Expr, Literal, PhysicalPlan};
 use crumble_storage::{Catalog, Row, Value};
 
-pub fn execute(plan: &PhysicalPlan, catalog: &Catalog) -> Result<RowSet, ExecError> {
+use crate::error::ExecError;
+use crate::row_set::RowSet;
+
+pub fn execute(plan: &PhysicalPlan, catalog: &mut Catalog) -> Result<RowSet, ExecError> {
     match plan {
         PhysicalPlan::SeqScan { table } => {
             let table = catalog.get(table)?;
@@ -46,7 +47,50 @@ pub fn execute(plan: &PhysicalPlan, catalog: &Catalog) -> Result<RowSet, ExecErr
 
             Ok(RowSet::new(columns.clone(), projected_rows))
         }
+        PhysicalPlan::Insert {
+            table,
+            columns,
+            rows,
+        } => {
+            let target = catalog.get_mut(table)?;
+            let table_columns = target.columns().to_vec();
+
+            for row in rows {
+                let values: Vec<Value> = row.iter().map(literal_to_value).collect();
+                let ordered = order_row_values(&table_columns, columns, values)?;
+                target.insert(Row::new(ordered))?;
+            }
+
+            Ok(RowSet::new(Vec::new(), Vec::new()))
+        }
     }
+}
+
+fn order_row_values(
+    table_columns: &[String],
+    insert_columns: &[String],
+    values: Vec<Value>,
+) -> Result<Vec<Value>, ExecError> {
+    if insert_columns.is_empty() {
+        return Ok(values);
+    }
+
+    if insert_columns.len() != table_columns.len() {
+        return Err(ExecError::MissingColumn(
+            "INSERT must specify all columns until NULL/defaults are supported".to_string(),
+        ));
+    }
+
+    table_columns
+        .iter()
+        .map(|table_col| {
+            let index = insert_columns
+                .iter()
+                .position(|c| c == table_col)
+                .ok_or_else(|| ExecError::MissingColumn(table_col.clone()))?;
+            Ok(values[index].clone())
+        })
+        .collect()
 }
 
 fn eval_expr(expr: &Expr, columns: &[String], row: &Row) -> Result<Value, ExecError> {
@@ -54,7 +98,7 @@ fn eval_expr(expr: &Expr, columns: &[String], row: &Row) -> Result<Value, ExecEr
         Expr::Column(name) => {
             let index = columns
                 .iter()
-                .position(|col| col == name)
+                .position(|c| c == name)
                 .ok_or_else(|| ExecError::ColumnNotFound(name.clone()))?;
             Ok(row.values()[index].clone())
         }
@@ -92,8 +136,7 @@ fn eval_int(l: i64, op: BinaryOperator, r: i64) -> Result<Value, ExecError> {
         BinaryOperator::LtEq => Ok(Value::Bool(l <= r)),
         BinaryOperator::Gt => Ok(Value::Bool(l > r)),
         BinaryOperator::GtEq => Ok(Value::Bool(l >= r)),
-        BinaryOperator::And => Err(ExecError::TypeMismatch),
-        BinaryOperator::Or => Err(ExecError::TypeMismatch),
+        BinaryOperator::And | BinaryOperator::Or => Err(ExecError::TypeMismatch),
     }
 }
 
@@ -101,12 +144,11 @@ fn eval_bool(l: bool, op: BinaryOperator, r: bool) -> Result<Value, ExecError> {
     match op {
         BinaryOperator::Eq => Ok(Value::Bool(l == r)),
         BinaryOperator::NotEq => Ok(Value::Bool(l != r)),
-        BinaryOperator::Lt => Err(ExecError::TypeMismatch),
-        BinaryOperator::LtEq => Err(ExecError::TypeMismatch),
-        BinaryOperator::Gt => Err(ExecError::TypeMismatch),
-        BinaryOperator::GtEq => Err(ExecError::TypeMismatch),
         BinaryOperator::And => Ok(Value::Bool(l && r)),
         BinaryOperator::Or => Ok(Value::Bool(l || r)),
+        BinaryOperator::Lt | BinaryOperator::LtEq | BinaryOperator::Gt | BinaryOperator::GtEq => {
+            Err(ExecError::TypeMismatch)
+        }
     }
 }
 
@@ -118,8 +160,7 @@ fn eval_string(l: &str, op: BinaryOperator, r: &str) -> Result<Value, ExecError>
         BinaryOperator::LtEq => Ok(Value::Bool(l <= r)),
         BinaryOperator::Gt => Ok(Value::Bool(l > r)),
         BinaryOperator::GtEq => Ok(Value::Bool(l >= r)),
-        BinaryOperator::And => Err(ExecError::TypeMismatch),
-        BinaryOperator::Or => Err(ExecError::TypeMismatch),
+        BinaryOperator::And | BinaryOperator::Or => Err(ExecError::TypeMismatch),
     }
 }
 
@@ -155,13 +196,13 @@ mod tests {
 
     #[test]
     fn executes_filtered_projection() -> Result<(), Box<dyn std::error::Error>> {
-        let catalog = seeded_catalog();
+        let mut catalog = seeded_catalog();
 
         let ast = parse("SELECT name FROM users WHERE age > 30")?;
         let logical = lower(&ast)?;
         let physical = to_physical(logical);
 
-        let result = execute(&physical, &catalog)?;
+        let result = execute(&physical, &mut catalog)?;
 
         assert_eq!(result.columns(), &["name".to_string()]);
         assert_eq!(
@@ -173,14 +214,35 @@ mod tests {
 
     #[test]
     fn errors_on_unknown_column() {
-        let catalog = seeded_catalog();
+        let mut catalog = seeded_catalog();
 
         let ast = parse("SELECT ghost FROM users").unwrap();
         let logical = lower(&ast).unwrap();
         let physical = to_physical(logical);
 
-        let result = execute(&physical, &catalog);
+        let result = execute(&physical, &mut catalog);
 
         assert!(matches!(result, Err(ExecError::ColumnNotFound(col)) if col == "ghost"));
+    }
+
+    #[test]
+    fn inserts_then_reads_back() -> Result<(), Box<dyn std::error::Error>> {
+        let mut catalog = seeded_catalog();
+
+        let insert_ast = parse("INSERT INTO users (name, age) VALUES ('eve', 41)")?;
+        let insert_logical = lower(&insert_ast)?;
+        let insert_physical = to_physical(insert_logical);
+        execute(&insert_physical, &mut catalog)?;
+
+        let select_ast = parse("SELECT name FROM users WHERE age > 40")?;
+        let select_logical = lower(&select_ast)?;
+        let select_physical = to_physical(select_logical);
+        let result = execute(&select_physical, &mut catalog)?;
+
+        assert_eq!(
+            result.rows(),
+            &[Row::new(vec![Value::String("eve".to_string())])]
+        );
+        Ok(())
     }
 }
