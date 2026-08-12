@@ -3,6 +3,7 @@ mod error;
 mod row;
 mod table;
 mod value;
+mod page;
 
 pub use catalog::Catalog;
 pub use error::StorageError;
