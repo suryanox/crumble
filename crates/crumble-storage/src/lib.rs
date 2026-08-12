@@ -1,9 +1,9 @@
 mod catalog;
 mod error;
+mod page;
 mod row;
 mod table;
 mod value;
-mod page;
 
 pub use catalog::Catalog;
 pub use error::StorageError;

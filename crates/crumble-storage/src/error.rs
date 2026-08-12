@@ -10,4 +10,10 @@ pub enum StorageError {
 
     #[error("table already exists: {0}")]
     TableAlreadyExists(String),
+
+    #[error("row encoding failed: {0}")]
+    Encoding(String),
+
+    #[error("row too large to fit in a page")]
+    RowTooLarge,
 }

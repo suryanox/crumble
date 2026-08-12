@@ -1,4 +1,3 @@
-
 pub const PAGE_SIZE: usize = 4096;
 const HEADER_SIZE: usize = 4;
 const SLOT_SIZE: usize = 4;
@@ -8,7 +7,6 @@ pub struct Page {
 }
 
 impl Page {
-
     // first 4 bytes of the page are the header
     pub fn new() -> Self {
         let mut bytes = [0u8; PAGE_SIZE];
@@ -16,7 +14,7 @@ impl Page {
         Self { bytes }
     }
 
-    fn slot_count(&self) -> u16 {
+    pub fn slot_count(&self) -> u16 {
         u16::from_le_bytes([self.bytes[0], self.bytes[1]])
     }
 
@@ -55,9 +53,11 @@ impl Page {
         // writing the new slot's offset then length, 2 bytes each, directly into the page's own byte array literally the slot directory living inside bytes, like we corrected it to
         self.bytes[row_offset..free_space_offset].copy_from_slice(data);
 
-        self.bytes[slot_dir_end..slot_dir_end  +  2].copy_from_slice(&(row_offset as u16).to_le_bytes());
+        self.bytes[slot_dir_end..slot_dir_end + 2]
+            .copy_from_slice(&(row_offset as u16).to_le_bytes());
 
-        self.bytes[slot_dir_end+2..slot_dir_end + 4].copy_from_slice(&(row_len as u16).to_le_bytes());
+        self.bytes[slot_dir_end + 2..slot_dir_end + 4]
+            .copy_from_slice(&(row_len as u16).to_le_bytes());
 
         self.set_free_space_offset(row_offset as u16);
         self.set_slot_count(slot_count + 1);
@@ -75,14 +75,15 @@ impl Page {
         let slot_offset = HEADER_SIZE + (slot_index as usize) * SLOT_SIZE;
 
         // Read row_offset/row_len back out  mirror image of insert_row's writes: same two u16::from_le_bytes reads we already used for the header, just at a different position.
-        let row_offset = u16::from_le_bytes([self.bytes[slot_offset], self.bytes[slot_offset + 1]]) as usize;
-        let row_len = u16::from_le_bytes([self.bytes[slot_offset + 2], self.bytes[slot_offset + 3]]) as usize;
+        let row_offset =
+            u16::from_le_bytes([self.bytes[slot_offset], self.bytes[slot_offset + 1]]) as usize;
+        let row_len =
+            u16::from_le_bytes([self.bytes[slot_offset + 2], self.bytes[slot_offset + 3]]) as usize;
 
         // Returning a slice, not a copy &[u8] borrows straight from self.bytes, zero-copy. Whoever calls this decides whether to clone/deserialize it.
         Some(&self.bytes[row_offset..row_offset + row_len])
     }
 }
-
 
 #[cfg(test)]
 mod tests {

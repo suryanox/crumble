@@ -8,7 +8,8 @@ pub fn execute(plan: &PhysicalPlan, catalog: &mut Catalog) -> Result<RowSet, Exe
     match plan {
         PhysicalPlan::SeqScan { table } => {
             let table = catalog.get(table)?;
-            Ok(RowSet::new(table.columns().to_vec(), table.rows().to_vec()))
+            let rows = table.rows()?;
+            Ok(RowSet::new(table.columns().to_vec(), rows))
         }
         PhysicalPlan::Filter { input, predicate } => {
             let input = execute(input, catalog)?;

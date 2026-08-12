@@ -1,11 +1,12 @@
 use crate::error::StorageError;
+use crate::page::Page;
 use crate::row::Row;
 
 #[derive(Debug, Clone)]
 pub struct Table {
     name: String,
     columns: Vec<String>,
-    rows: Vec<Row>,
+    pages: Vec<Page>,
 }
 
 impl Table {
@@ -14,7 +15,7 @@ impl Table {
         Self {
             name: name.into(),
             columns,
-            rows: Vec::new(),
+            pages: Vec::new(),
         }
     }
 
@@ -26,10 +27,24 @@ impl Table {
         &self.columns
     }
 
-    pub fn rows(&self) -> &[Row] {
-        &self.rows
+    pub fn rows(&self) -> Result<Vec<Row>, StorageError> {
+        let mut rows = Vec::new();
+
+        for page in &self.pages {
+            for slot in 0..page.slot_count() {
+                let bytes = page
+                    .get_row(slot)
+                    .expect("slot index within slot_count must be valid");
+                rows.push(Row::from_bytes(&bytes)?);
+            }
+        }
+        Ok(rows)
     }
 
+    /**
+    this is the simplest possible page-allocation policy ("append-only, one page at a time")
+    A real engine tracks free space across all pages to avoid wasted space in earlier pages; we're not doing that yet
+    */
     pub fn insert(&mut self, row: Row) -> Result<(), StorageError> {
         if row.values().len() != self.columns().len() {
             return Err(StorageError::ColumnCountMismatch {
@@ -37,7 +52,22 @@ impl Table {
                 actual: row.values().len(),
             });
         }
-        self.rows.push(row);
+        let bytes = row.to_bytes()?;
+
+        if let Some(page) = self.pages.last_mut() {
+            if page.insert_row(&bytes).is_some() {
+                return Ok(());
+            }
+        }
+
+        let mut page = Page::new();
+
+        if page.insert_row(&bytes).is_none() {
+            return Err(StorageError::RowTooLarge);
+        }
+
+        self.pages.push(page);
+
         Ok(())
     }
 }
@@ -68,7 +98,7 @@ mod tests {
         let mut table = Table::new("users", vec!["name".to_string()]);
         table.insert(Row::new(vec![Value::String("alice".to_string())]))?;
 
-        assert_eq!(table.rows().len(), 1);
+        assert_eq!(table.pages.len(), 1);
         Ok(())
     }
 }
