@@ -6,31 +6,26 @@ use crumble_exec::execute;
 use crumble_ir::{lower, to_physical};
 use crumble_opt::{ConstantFold, OptimizationPass};
 use crumble_sql::parse;
-use crumble_storage::{Catalog, Row, Value};
+use crumble_storage::{Catalog, Row, StorageError, Value};
 
-fn seeded_catalog() -> Catalog {
-    let mut catalog = Catalog::new();
-    catalog
-        .create_table("users", vec!["name".to_string(), "age".to_string()])
-        .expect("seed table should not already exist");
+fn seeded_catalog() -> Result<Catalog, StorageError> {
+    let mut catalog = Catalog::open("./crumble-data")?;
 
-    let users = catalog
-        .get_mut("users")
-        .expect("just-created table must exist");
-    users
-        .insert(Row::new(vec![
+    if catalog.get("users").is_err() {
+        catalog.create_table("users", vec!["name".to_string(), "age".to_string()])?;
+
+        let users = catalog.get_mut("users")?;
+        users.insert(Row::new(vec![
             Value::String("alice".to_string()),
             Value::Int(5),
-        ]))
-        .expect("row matches table schema");
-    users
-        .insert(Row::new(vec![
+        ]))?;
+        users.insert(Row::new(vec![
             Value::String("bob".to_string()),
             Value::Int(2),
-        ]))
-        .expect("row matches table schema");
+        ]))?;
+    }
 
-    catalog
+    Ok(catalog)
 }
 const RESET: &str = "\x1b[0m";
 const CYAN: &str = "\x1b[36m";
@@ -40,8 +35,13 @@ const RED: &str = "\x1b[31m";
 const DIM: &str = "\x1b[2m";
 
 fn main() -> ExitCode {
-    let mut catalog = seeded_catalog();
-
+    let mut catalog = match seeded_catalog() {
+        Ok(catalog) => catalog,
+        Err(err) => {
+            eprintln!("{RED}storage error:{RESET} {err}");
+            return ExitCode::FAILURE;
+        }
+    };
     loop {
         print!("{CYAN}crumble>{RESET} ");
         io::stdout().flush().unwrap();

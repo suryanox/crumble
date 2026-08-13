@@ -16,4 +16,7 @@ pub enum StorageError {
 
     #[error("row too large to fit in a page")]
     RowTooLarge,
+
+    #[error("storage I/O error: {0}")]
+    Io(#[from] std::io::Error),
 }

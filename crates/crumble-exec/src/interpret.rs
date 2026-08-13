@@ -7,7 +7,7 @@ use crate::row_set::RowSet;
 pub fn execute(plan: &PhysicalPlan, catalog: &mut Catalog) -> Result<RowSet, ExecError> {
     match plan {
         PhysicalPlan::SeqScan { table } => {
-            let table = catalog.get(table)?;
+            let table = catalog.get_mut(table)?;
             let rows = table.rows()?;
             Ok(RowSet::new(table.columns().to_vec(), rows))
         }
@@ -192,8 +192,9 @@ mod tests {
     use crumble_sql::parse;
     use crumble_storage::{Catalog, Row, Value};
 
-    fn seeded_catalog() -> Catalog {
-        let mut catalog = Catalog::new();
+    fn seeded_catalog() -> (tempfile::TempDir, Catalog) {
+        let dir = tempfile::tempdir().unwrap();
+        let mut catalog = Catalog::open(dir.path()).unwrap();
         catalog
             .create_table("users", vec!["name".to_string(), "age".to_string()])
             .unwrap();
@@ -213,11 +214,23 @@ mod tests {
             .unwrap();
 
         catalog
+            .create_table("metrics", vec!["label".to_string(), "score".to_string()])
+            .unwrap();
+
+        let metrics = catalog.get_mut("metrics").unwrap();
+        metrics
+            .insert(Row::new(vec![
+                Value::String("a".to_string()),
+                Value::Float(4.0),
+            ]))
+            .unwrap();
+
+        (dir, catalog)
     }
 
     #[test]
     fn executes_filtered_projection() -> Result<(), Box<dyn std::error::Error>> {
-        let mut catalog = seeded_catalog();
+        let (_dir, mut catalog) = seeded_catalog();
 
         let ast = parse("SELECT name FROM users WHERE age > 30")?;
         let logical = lower(&ast)?;
@@ -235,7 +248,7 @@ mod tests {
 
     #[test]
     fn errors_on_unknown_column() {
-        let mut catalog = seeded_catalog();
+        let (_dir, mut catalog) = seeded_catalog();
 
         let ast = parse("SELECT ghost FROM users").unwrap();
         let logical = lower(&ast).unwrap();
@@ -248,16 +261,14 @@ mod tests {
 
     #[test]
     fn inserts_then_reads_back() -> Result<(), Box<dyn std::error::Error>> {
-        let mut catalog = seeded_catalog();
+        let (_dir, mut catalog) = seeded_catalog();
 
         let insert_ast = parse("INSERT INTO users (name, age) VALUES ('eve', 41)")?;
-        let insert_logical = lower(&insert_ast)?;
-        let insert_physical = to_physical(insert_logical);
+        let insert_physical = to_physical(lower(&insert_ast)?);
         execute(&insert_physical, &mut catalog)?;
 
         let select_ast = parse("SELECT name FROM users WHERE age > 40")?;
-        let select_logical = lower(&select_ast)?;
-        let select_physical = to_physical(select_logical);
+        let select_physical = to_physical(lower(&select_ast)?);
         let result = execute(&select_physical, &mut catalog)?;
 
         assert_eq!(
@@ -269,23 +280,7 @@ mod tests {
 
     #[test]
     fn filters_float_values() -> Result<(), Box<dyn std::error::Error>> {
-        let mut catalog = Catalog::new();
-        catalog
-            .create_table("metrics", vec!["label".to_string(), "score".to_string()])
-            .unwrap();
-        let table = catalog.get_mut("metrics").unwrap();
-        table
-            .insert(Row::new(vec![
-                Value::String("a".into()),
-                Value::Float(3.14),
-            ]))
-            .unwrap();
-        table
-            .insert(Row::new(vec![
-                Value::String("b".into()),
-                Value::Float(2.71),
-            ]))
-            .unwrap();
+        let (_dir, mut catalog) = seeded_catalog();
 
         let ast = parse("SELECT label FROM metrics WHERE score > 3.0")?;
         let logical = lower(&ast)?;
@@ -298,7 +293,7 @@ mod tests {
 
     #[test]
     fn executes_int_addition() -> Result<(), Box<dyn std::error::Error>> {
-        let mut catalog = seeded_catalog();
+        let (_dir, mut catalog) = seeded_catalog();
         let ast = parse("SELECT name FROM users WHERE age > 20 + 1")?;
         let logical = lower(&ast)?;
         let physical = to_physical(logical);

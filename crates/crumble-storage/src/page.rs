@@ -83,6 +83,14 @@ impl Page {
         // Returning a slice, not a copy &[u8] borrows straight from self.bytes, zero-copy. Whoever calls this decides whether to clone/deserialize it.
         Some(&self.bytes[row_offset..row_offset + row_len])
     }
+
+    pub fn from_bytes(bytes: [u8; PAGE_SIZE]) -> Self {
+        Self { bytes }
+    }
+
+    pub fn as_bytes(&self) -> &[u8; PAGE_SIZE] {
+        &self.bytes
+    }
 }
 
 #[cfg(test)]

@@ -1,15 +1,23 @@
 use crate::error::StorageError;
 use crate::table::Table;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Catalog {
+    data_dir: PathBuf,
     tables: HashMap<String, Table>,
 }
 
 impl Catalog {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn open(data_dir: impl Into<PathBuf>) -> Result<Self, StorageError> {
+        let data_dir = data_dir.into();
+        std::fs::create_dir_all(&data_dir)?;
+
+        Ok(Self {
+            data_dir,
+            tables: HashMap::new(),
+        })
     }
 
     pub fn create_table(
@@ -22,7 +30,9 @@ impl Catalog {
             return Err(StorageError::TableAlreadyExists(name));
         }
 
-        self.tables.insert(name.clone(), Table::new(name, columns));
+        let path = self.data_dir.join(format!("{name}.tbl"));
+        let table = Table::open(name.clone(), columns, path)?;
+        self.tables.insert(name, table);
         Ok(())
     }
 
@@ -43,9 +53,15 @@ impl Catalog {
 mod tests {
     use super::*;
 
+    fn temp_catalog() -> (tempfile::TempDir, Catalog) {
+        let dir = tempfile::tempdir().unwrap();
+        let catalog = Catalog::open(dir.path()).unwrap();
+        (dir, catalog)
+    }
+
     #[test]
     fn create_table_rejects_duplicate() {
-        let mut catalog = Catalog::new();
+        let (_dir, mut catalog) = temp_catalog();
         catalog
             .create_table("users", vec!["name".to_string()])
             .unwrap();
@@ -57,7 +73,7 @@ mod tests {
 
     #[test]
     fn get_missing_table_errors() {
-        let catalog = Catalog::new();
+        let (_dir, catalog) = temp_catalog();
         let result = catalog.get("ghost");
 
         assert!(matches!(result, Err(StorageError::TableNotFound(name)) if name == "ghost"));
