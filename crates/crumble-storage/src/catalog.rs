@@ -2,6 +2,12 @@ use crate::error::StorageError;
 use crate::table::Table;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+struct CatalogMeta {
+    tables: HashMap<String, Vec<String>>,
+}
 
 #[derive(Debug)]
 pub struct Catalog {
@@ -14,10 +20,45 @@ impl Catalog {
         let data_dir = data_dir.into();
         std::fs::create_dir_all(&data_dir)?;
 
-        Ok(Self {
-            data_dir,
-            tables: HashMap::new(),
-        })
+        let meta = Self::load_meta(&data_dir)?;
+        let mut tables = HashMap::new();
+
+        for (name, columns) in meta.tables {
+            let table = Table::open(name.clone(), columns, &data_dir)?;
+            tables.insert(name, table);
+        }
+
+        Ok(Self { data_dir, tables })
+    }
+
+    fn meta_path(data_dir: &std::path::Path) -> PathBuf {
+        data_dir.join("catalog.json") // JSON, not bincode, for this file specifically different reasoning than pages/WAL. Catalog metadata is small, written rarely (only on CREATE TABLE)
+    }
+
+    fn load_meta(data_dir: &std::path::Path) -> Result<CatalogMeta, StorageError> {
+        let path = Self::meta_path(data_dir);
+
+        match std::fs::read_to_string(&path) {
+            Ok(contents) => serde_json::from_str(&contents)
+                .map_err(|e| StorageError::Encoding(e.to_string())),
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(CatalogMeta::default()),
+            Err(err) => Err(err.into()),
+        }
+    }
+
+    fn save_meta(&self) -> Result<(), StorageError> {
+        let meta = CatalogMeta {
+            tables: self
+                .tables
+                .iter()
+                .map(|(name, table)| (name.clone(), table.columns().to_vec()))
+                .collect(),
+        };
+
+        let contents =
+            serde_json::to_string_pretty(&meta).map_err(|e| StorageError::Encoding(e.to_string()))?;
+        std::fs::write(Self::meta_path(&self.data_dir), contents)?;
+        Ok(())
     }
 
     pub fn create_table(
@@ -33,7 +74,7 @@ impl Catalog {
 
         let table = Table::open(name.clone(), columns, &self.data_dir)?;
         self.tables.insert(name, table);
-        Ok(())
+        self.save_meta()
     }
 
     pub fn get(&self, name: &str) -> Result<&Table, StorageError> {
