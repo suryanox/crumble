@@ -1,7 +1,7 @@
 use crate::error::WalError;
 use crate::record::WalRecord;
 use std::fs::{File, OpenOptions};
-use std::io::Write;
+use std::io::{Seek, Write};
 use std::path::Path;
 
 #[derive(Debug)]
@@ -16,7 +16,13 @@ impl WalWriter {
         Ok(Self { file })
     }
 
-    pub fn append(&mut self, record: &WalRecord) -> Result<(), WalError> {
+    pub fn append(&mut self, record: &WalRecord) -> Result<u64, WalError> {
+        // stream_position() reads the current file cursor position before writing
+        // since we only ever append, that position is exactly
+        // "how many bytes exist before this record,"
+        // which is a perfectly good, simple LSN. Captured before the write,
+        // not after, since it needs to be this record's starting offset.
+        let lsn = self.file.stream_position()?;
         let bytes = bincode::serde::encode_to_vec(&record, bincode::config::standard())
             .map_err(|e| WalError::Encoding(e.to_string()))?;
 
@@ -25,7 +31,7 @@ impl WalWriter {
         self.file.write_all(&bytes)?;
         self.file.sync_data()?;
 
-        Ok(())
+        Ok(lsn)
     }
 }
 
@@ -42,14 +48,18 @@ mod tests {
         let path = dir.path().join("test.wal");
 
         let mut writer = WalWriter::open(&path)?;
-        writer.append(&WalRecord::Insert {
+        let lsn_a = writer.append(&WalRecord::Insert {
             table: "users".to_string(),
+            page_index: 0,
             row_bytes: b"alice,35".to_vec(),
         })?;
-        writer.append(&WalRecord::Insert {
+        let lsn_b = writer.append(&WalRecord::Insert {
             table: "users".to_string(),
+            page_index: 0,
             row_bytes: b"bob,22".to_vec(),
         })?;
+
+        assert!(lsn_b > lsn_a, "LSNs must be strictly increasing");
 
         let records = read_all(&path)?;
         assert_eq!(records.len(), 2);
@@ -75,6 +85,7 @@ mod tests {
             let mut writer = WalWriter::open(&path)?;
             writer.append(&WalRecord::Insert {
                 table: "users".to_string(),
+                page_index: 0,
                 row_bytes: b"alice,35".to_vec(),
             })?;
         }
