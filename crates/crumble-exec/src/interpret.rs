@@ -63,6 +63,10 @@ pub fn execute(plan: &PhysicalPlan, catalog: &mut Catalog) -> Result<RowSet, Exe
             }
 
             Ok(RowSet::new(Vec::new(), Vec::new()))
+        },
+        PhysicalPlan::CreateTable { table, columns } => {
+            catalog.create_table(table, columns.clone())?;
+            Ok(RowSet::new(Vec::new(), Vec::new()))
         }
     }
 }

@@ -22,4 +22,8 @@ pub enum LogicalPlan {
         columns: Vec<String>,
         rows: Vec<Vec<Literal>>,
     },
+    CreateTable {
+        table: String,
+        columns: Vec<String>,
+    }
 }

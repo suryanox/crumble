@@ -23,4 +23,8 @@ pub enum PhysicalPlan {
         columns: Vec<String>,
         rows: Vec<Vec<Literal>>,
     },
+    CreateTable {
+        table: String,
+        columns: Vec<String>,
+    }
 }

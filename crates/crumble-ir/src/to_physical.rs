@@ -24,5 +24,6 @@ pub fn to_physical(plan: LogicalPlan) -> PhysicalPlan {
             columns,
             rows,
         },
+        LogicalPlan::CreateTable {table, columns} => PhysicalPlan::CreateTable { table, columns },
     }
 }

@@ -29,6 +29,7 @@ fn fold_plan(plan: LogicalPlan) -> LogicalPlan {
             columns,
             rows,
         },
+        LogicalPlan::CreateTable { table, columns } => LogicalPlan::CreateTable { table, columns },
     }
 }
 

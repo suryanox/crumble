@@ -1,9 +1,6 @@
 use crate::{BinaryOperator, Expr, Literal, LogicalPlan, LowerError};
 use crumble_sql::Ast;
-use sqlparser::ast::{
-    BinaryOperator as SqlBinaryOperator, Expr as SqlExpr, Insert, Select, SelectItem, SetExpr,
-    Statement, TableFactor, TableWithJoins, Value as SqlValue,
-};
+use sqlparser::ast::{BinaryOperator as SqlBinaryOperator, Expr as SqlExpr, Insert, Select, SelectItem, SetExpr, Statement, TableFactor, TableWithJoins, Value as SqlValue};
 
 pub fn lower(ast: &Ast) -> Result<LogicalPlan, LowerError> {
     let statement = ast
@@ -18,9 +15,22 @@ fn lower_statement(statement: &Statement) -> Result<LogicalPlan, LowerError> {
     match statement {
         Statement::Query(query) => lower_select_expr(&query.body),
         Statement::Insert(insert) => lower_insert(insert),
+        Statement::CreateTable(create_table) => {
+            let table = create_table.name.to_string();
+
+            let columns = create_table
+                .columns
+                .iter()
+                .map(|col| col.name.value.clone())
+                .collect();
+
+            Ok(LogicalPlan::CreateTable {table, columns})
+        },
         other => Err(LowerError::Unsupported(format!("statement: {other:?}"))),
     }
 }
+
+
 
 fn lower_insert(insert: &Insert) -> Result<LogicalPlan, LowerError> {
     let table = insert.table.to_string();
