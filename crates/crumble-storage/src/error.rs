@@ -1,5 +1,5 @@
+use crumble_buffer::BufferError;
 use thiserror::Error;
-
 #[derive(Debug, Error)]
 pub enum StorageError {
     #[error("column count mismatch: expected {expected}, got {actual}")]
@@ -16,6 +16,9 @@ pub enum StorageError {
 
     #[error("row too large to fit in a page")]
     RowTooLarge,
+
+    #[error(transparent)]
+    Buffer(#[from] BufferError),
 
     #[error("storage I/O error: {0}")]
     Io(#[from] std::io::Error),

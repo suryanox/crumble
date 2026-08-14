@@ -1,7 +1,5 @@
 mod catalog;
 mod error;
-mod page;
-mod page_store;
 mod row;
 mod table;
 mod value;

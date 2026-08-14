@@ -67,6 +67,9 @@ dependencies = [
 [[package]]
 name = "crumble-buffer"
 version = "0.1.0"
+dependencies = [
+ "thiserror",
+]
 
 [[package]]
 name = "crumble-exec"
@@ -112,6 +115,7 @@ name = "crumble-storage"
 version = "0.1.0"
 dependencies = [
  "bincode",
+ "crumble-buffer",
  "serde",
  "tempfile",
  "thiserror",

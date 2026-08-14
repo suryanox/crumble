@@ -1,5 +1,4 @@
-use crate::StorageError;
-use crate::page::{PAGE_SIZE, Page};
+use crate::{BufferError, PAGE_SIZE, Page};
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::Path;
@@ -10,7 +9,7 @@ pub struct PageStore {
 }
 
 impl PageStore {
-    pub fn open(path: impl AsRef<Path>) -> Result<Self, StorageError> {
+    pub fn open(path: impl AsRef<Path>) -> Result<Self, BufferError> {
         let file = OpenOptions::new()
             .read(true)
             .write(true)
@@ -21,7 +20,7 @@ impl PageStore {
         Ok(Self { file })
     }
 
-    pub fn read_page(&mut self, page_index: u32) -> Result<Page, StorageError> {
+    pub fn read_page(&mut self, page_index: u32) -> Result<Page, BufferError> {
         // this is the heap-file addressing formula. Page 0 is bytes 0..4096, page 1 is 4096..8192, and so on. No index/lookup needed because pages are fixed-size and never move.
         let offset = (page_index as u64) * (PAGE_SIZE as u64);
 
@@ -34,7 +33,7 @@ impl PageStore {
         Ok(Page::from_bytes(bytes))
     }
 
-    pub fn write_page(&mut self, page_index: u32, page: &Page) -> Result<(), StorageError> {
+    pub fn write_page(&mut self, page_index: u32, page: &Page) -> Result<(), BufferError> {
         let offset = (page_index as u64) * (PAGE_SIZE as u64);
 
         self.file.seek(SeekFrom::Start(offset))?;
@@ -47,7 +46,7 @@ impl PageStore {
         Ok(())
     }
 
-    pub fn page_count(&mut self) -> Result<u32, StorageError> {
+    pub fn page_count(&mut self) -> Result<u32, BufferError> {
         let len = self.file.seek(SeekFrom::End(0))?;
         Ok((len / PAGE_SIZE as u64) as u32)
     }

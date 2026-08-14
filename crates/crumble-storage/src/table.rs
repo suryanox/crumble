@@ -1,15 +1,15 @@
+use crate::error::StorageError;
+use crate::row::Row;
+use crumble_buffer::BufferPool;
 use std::path::Path;
 
-use crate::error::StorageError;
-use crate::page::Page;
-use crate::page_store::PageStore;
-use crate::row::Row;
+const BUFFER_CAPACITY: usize = 64;
 
 #[derive(Debug)]
 pub struct Table {
     name: String,
     columns: Vec<String>,
-    store: PageStore,
+    pool: BufferPool,
 }
 
 impl Table {
@@ -18,12 +18,12 @@ impl Table {
         columns: Vec<String>,
         path: impl AsRef<Path>,
     ) -> Result<Self, StorageError> {
-        let store = PageStore::open(path)?;
+        let pool = BufferPool::open(path, BUFFER_CAPACITY)?;
 
         Ok(Self {
             name: name.into(),
             columns,
-            store,
+            pool,
         })
     }
 
@@ -44,30 +44,30 @@ impl Table {
         }
 
         let bytes = row.to_bytes()?;
-        let page_count = self.store.page_count()?;
+        let page_count = self.pool.page_count()?;
 
         if page_count > 0 {
             let last_index = page_count - 1;
-            let mut page = self.store.read_page(last_index)?;
+            let mut page = self.pool.fetch_page(last_index)?;
 
             if page.insert_row(&bytes).is_some() {
-                return self.store.write_page(last_index, &page);
+                return Ok(self.pool.write_page(last_index, &page)?);
             }
         }
 
-        let mut page = Page::new();
+        let mut page = crumble_buffer::Page::new();
         if page.insert_row(&bytes).is_none() {
             return Err(StorageError::RowTooLarge);
         }
-        self.store.write_page(page_count, &page)
+        Ok(self.pool.write_page(page_count, &page)?)
     }
 
     pub fn rows(&mut self) -> Result<Vec<Row>, StorageError> {
         let mut rows = Vec::new();
-        let page_count = self.store.page_count()?;
+        let page_count = self.pool.page_count()?;
 
         for page_index in 0..page_count {
-            let page = self.store.read_page(page_index)?;
+            let page = self.pool.fetch_page(page_index)?;
 
             for slot in 0..page.slot_count() {
                 let bytes = page
