@@ -68,6 +68,7 @@ dependencies = [
 name = "crumble-buffer"
 version = "0.1.0"
 dependencies = [
+ "tempfile",
  "thiserror",
 ]
 

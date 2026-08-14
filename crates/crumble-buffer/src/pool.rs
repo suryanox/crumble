@@ -21,6 +21,11 @@ impl BufferPool {
         })
     }
 
+
+    pub fn disk_read_count(&self) -> u64 {
+        self.store.read_count()
+    }
+
     pub fn page_count(&mut self) -> Result<u32, BufferError> {
         self.store.page_count()
     }
@@ -59,5 +64,49 @@ impl BufferPool {
 
         self.frames.insert(page_index, page);
         self.touch(page_index);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn repeated_fetch_hits_disk_once() -> Result<(), BufferError> {
+        let dir = tempfile::tempdir()?;
+        let mut pool = BufferPool::open(dir.path().join("test.pages"), 8)?;
+
+        let mut page = Page::new();
+        page.insert_row(b"hello");
+        pool.write_page(0, &page)?;
+
+        assert_eq!(pool.disk_read_count(), 0);
+
+        pool.fetch_page(0)?;
+        assert_eq!(pool.disk_read_count(), 0, "write_page should have cached it already");
+
+        pool.fetch_page(0)?;
+        pool.fetch_page(0)?;
+        assert_eq!(pool.disk_read_count(), 0, "repeated fetches should stay cache hits");
+
+        Ok(())
+    }
+
+    #[test]
+    fn evicted_page_forces_real_disk_read() -> Result<(), BufferError> {
+        let dir = tempfile::tempdir()?;
+        let mut pool = BufferPool::open(dir.path().join("test.pages"), 2)?;
+
+        for i in 0..3u32 {
+            let mut page = Page::new();
+            page.insert_row(format!("row-{i}").as_bytes());
+            pool.write_page(i, &page)?;
+        }
+
+        // capacity is 2, so page 0 was evicted when page 2 was written
+        pool.fetch_page(0)?;
+        assert_eq!(pool.disk_read_count(), 1, "page 0 should have been evicted and re-read");
+
+        Ok(())
     }
 }

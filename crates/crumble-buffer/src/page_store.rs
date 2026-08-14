@@ -6,6 +6,7 @@ use std::path::Path;
 #[derive(Debug)]
 pub struct PageStore {
     file: File,
+    read_count: u64,
 }
 
 impl PageStore {
@@ -17,7 +18,7 @@ impl PageStore {
             .truncate(false)
             .open(path)?;
 
-        Ok(Self { file })
+        Ok(Self { file, read_count: 0 })
     }
 
     pub fn read_page(&mut self, page_index: u32) -> Result<Page, BufferError> {
@@ -29,8 +30,13 @@ impl PageStore {
         let mut bytes = [0u8; PAGE_SIZE];
 
         self.file.read_exact(&mut bytes)?;
+        self.read_count += 1;
 
         Ok(Page::from_bytes(bytes))
+    }
+
+    pub fn read_count(&self) -> u64 {
+        self.read_count
     }
 
     pub fn write_page(&mut self, page_index: u32, page: &Page) -> Result<(), BufferError> {
