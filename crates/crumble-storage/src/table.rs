@@ -35,13 +35,21 @@ impl Table {
             wal,
         };
 
-        for (_lsn, record) in read_all(&wal_path)? {
+        for (lsn, record) in read_all(&wal_path)? {
             let WalRecord::Insert {
                 page_index,
                 row_bytes,
                 ..
             } = record;
-            table.apply_at(page_index, &row_bytes)?;
+
+            // for each replayed record, read the page's current stamped LSN. If it's >=
+            // this record's LSN, that record's effect is already baked into what's on disk (whether via eviction-flush or a clean shutdown)
+            let already_durable = page_index < table.pool.page_count()
+                && table.pool.fetch_page(page_index)?.page_lsn() >= lsn;
+
+            if !already_durable {
+                table.apply_at(page_index, &row_bytes, lsn)?;
+            }
         }
 
         Ok(table)
@@ -64,14 +72,15 @@ impl Table {
         }
 
         let bytes = row.to_bytes()?;
-        let (page_index, page) = self.prepare_insert(&bytes)?;
+        let (page_index, mut page) = self.prepare_insert(&bytes)?;
 
-        self.wal.append(&WalRecord::Insert {
+        let lsn = self.wal.append(&WalRecord::Insert {
             table: self.name.clone(),
             page_index,
             row_bytes: bytes,
         })?;
 
+        page.set_page_lsn(lsn);
         Ok(self.pool.write_page(page_index, &page)?)
     }
 
@@ -103,7 +112,7 @@ impl Table {
     /// Inserts bytes at an EXACT, already-decided page index used by WAL
     /// replay, which must reproduce the original page assignment exactly,
     /// not recompute a fresh one.
-    fn apply_at(&mut self, page_index: u32, bytes: &[u8]) -> Result<(), StorageError> {
+    fn apply_at(&mut self, page_index: u32, bytes: &[u8], lsn: u64) -> Result<(), StorageError> {
         let mut page = if page_index < self.pool.page_count() {
             self.pool.fetch_page(page_index)?
         } else {
@@ -114,6 +123,7 @@ impl Table {
             return Err(StorageError::RowTooLarge);
         }
 
+        page.set_page_lsn(lsn);
         Ok(self.pool.write_page(page_index, &page)?)
     }
 

@@ -1,5 +1,5 @@
 pub const PAGE_SIZE: usize = 4096;
-const HEADER_SIZE: usize = 4;
+const HEADER_SIZE: usize = 12; // 2 bytes slot_count, 2 bytes free_space_offset and 8 bytes of page lsn
 const SLOT_SIZE: usize = 4;
 #[derive(Debug, Clone)]
 pub struct Page {
@@ -12,6 +12,14 @@ impl Page {
         let mut bytes = [0u8; PAGE_SIZE];
         bytes[2..4].copy_from_slice(&(PAGE_SIZE as u16).to_le_bytes());
         Self { bytes }
+    }
+
+    pub fn page_lsn(&self) -> u64 {
+        u64::from_le_bytes(self.bytes[4..12].try_into().unwrap())
+    }
+
+    pub fn set_page_lsn(&mut self, lsn: u64) {
+        self.bytes[4..12].copy_from_slice(&lsn.to_le_bytes());
     }
 
     pub fn slot_count(&self) -> u16 {
