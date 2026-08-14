@@ -4,10 +4,16 @@ use std::collections::{HashMap, VecDeque};
 use std::path::Path;
 
 #[derive(Debug)]
+struct Frame {
+    page: Page,
+    dirty: bool,
+}
+
+#[derive(Debug)]
 pub struct BufferPool {
     store: PageStore,
     capacity: usize,
-    frames: HashMap<u32, Page>,
+    frames: HashMap<u32, Frame>,
     lru_order: VecDeque<u32>,
 }
 
@@ -32,21 +38,49 @@ impl BufferPool {
 
     // cache hit: clone and return and move it at back of lru, cache miss/real disk read
     pub fn fetch_page(&mut self, page_index: u32) -> Result<Page, BufferError> {
-        if let Some(page) = self.frames.get(&page_index) {
-            let page = page.clone();
+        if let Some(frame) = self.frames.get(&page_index) {
+            let page = frame.page.clone();
             self.touch(page_index);
             return Ok(page);
         }
 
         let page = self.store.read_page(page_index)?;
-        self.insert_into_cache(page_index, page.clone());
+        self.insert_into_cache(page_index, page.clone(), false)?;
         Ok(page)
     }
 
-    // writes through to disk and updates the cache in the same call, so a read immediately after a write never sees stale cached data.
+    /// Caches the page and marks it dirty. Does NOT write to disk yet —
+    /// that only happens on eviction or an explicit flush.
     pub fn write_page(&mut self, page_index: u32, page: &Page) -> Result<(), BufferError> {
-        self.store.write_page(page_index, page)?;
-        self.insert_into_cache(page_index, page.clone());
+        self.insert_into_cache(page_index, page.clone(), true)
+    }
+
+    /// Writes one dirty page to disk immediately and clears its dirty flag.
+    pub fn flush_page(&mut self, page_index: u32) -> Result<(), BufferError> {
+        if let Some(frame) = self.frames.get(&page_index) {
+            if frame.dirty {
+                self.store.write_page(page_index, &frame.page)?;
+                if let Some(frame) = self.frames.get_mut(&page_index) {
+                    frame.dirty = false;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Writes every dirty cached page to disk. This is a checkpoint.
+    pub fn flush_all(&mut self) -> Result<(), BufferError> {
+        let dirty_indices: Vec<u32> = self
+            .frames
+            .iter()
+            .filter(|(_, frame)| frame.dirty)
+            .map(|(&index, _)| index)
+            .collect();
+
+        for index in dirty_indices {
+            self.flush_page(index)?;
+        }
+
         Ok(())
     }
 
@@ -55,15 +89,35 @@ impl BufferPool {
         self.lru_order.push_back(page_index);
     }
 
-    fn insert_into_cache(&mut self, page_index: u32, page: Page) {
+    fn insert_into_cache(&mut self, page_index: u32, page: Page, dirty: bool) -> Result<(), BufferError> {
         if !self.frames.contains_key(&page_index) && self.frames.len() >= self.capacity {
             if let Some(evicted) = self.lru_order.pop_front() {
+                self.flush_page(evicted)?; // this is the one line standing between "fast write-back cache" and "silently loses data."
                 self.frames.remove(&evicted);
             }
         }
 
-        self.frames.insert(page_index, page);
+        // if a page is already cached and dirty (written but not yet flushed),
+        // and gets written to again before eviction,
+        // it must stay dirty (can't accidentally clear a pending write).
+        // frame.dirty || dirty captures that: once dirty,
+        // stays dirty until an explicit flush
+        let entry_dirty = self
+            .frames
+            .get(&page_index)
+            .map(|f| f.dirty || dirty)
+            .unwrap_or(dirty);
+
+        self.frames.insert(
+            page_index,
+            Frame {
+                page,
+                dirty: entry_dirty,
+            },
+        );
         self.touch(page_index);
+
+        Ok(())
     }
 }
 
