@@ -25,5 +25,5 @@ pub enum LogicalPlan {
     CreateTable {
         table: String,
         columns: Vec<String>,
-    }
+    },
 }

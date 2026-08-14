@@ -9,23 +9,7 @@ use crumble_sql::parse;
 use crumble_storage::{Catalog, Row, StorageError, Value};
 
 fn seeded_catalog() -> Result<Catalog, StorageError> {
-    let mut catalog = Catalog::open("./crumble-data")?;
-
-    if catalog.get("users").is_err() {
-        catalog.create_table("users", vec!["name".to_string(), "age".to_string()])?;
-
-        let users = catalog.get_mut("users")?;
-        users.insert(Row::new(vec![
-            Value::String("alice".to_string()),
-            Value::Int(5),
-        ]))?;
-        users.insert(Row::new(vec![
-            Value::String("bob".to_string()),
-            Value::Int(2),
-        ]))?;
-    }
-
-    Ok(catalog)
+    Catalog::open("./crumble-data")
 }
 const RESET: &str = "\x1b[0m";
 const CYAN: &str = "\x1b[36m";

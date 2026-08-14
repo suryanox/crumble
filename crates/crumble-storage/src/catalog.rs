@@ -1,8 +1,8 @@
 use crate::error::StorageError;
 use crate::table::Table;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct CatalogMeta {
@@ -39,8 +39,9 @@ impl Catalog {
         let path = Self::meta_path(data_dir);
 
         match std::fs::read_to_string(&path) {
-            Ok(contents) => serde_json::from_str(&contents)
-                .map_err(|e| StorageError::Encoding(e.to_string())),
+            Ok(contents) => {
+                serde_json::from_str(&contents).map_err(|e| StorageError::Encoding(e.to_string()))
+            }
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(CatalogMeta::default()),
             Err(err) => Err(err.into()),
         }
@@ -55,8 +56,8 @@ impl Catalog {
                 .collect(),
         };
 
-        let contents =
-            serde_json::to_string_pretty(&meta).map_err(|e| StorageError::Encoding(e.to_string()))?;
+        let contents = serde_json::to_string_pretty(&meta)
+            .map_err(|e| StorageError::Encoding(e.to_string()))?;
         std::fs::write(Self::meta_path(&self.data_dir), contents)?;
         Ok(())
     }

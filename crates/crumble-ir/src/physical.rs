@@ -9,7 +9,9 @@ pub enum PhysicalPlan {
     /**
     read every row in the table start to finish, no index, no shortcuts - Simplest way
     */
-    SeqScan { table: String },
+    SeqScan {
+        table: String,
+    },
     Filter {
         input: Box<PhysicalPlan>,
         predicate: Expr,
@@ -26,5 +28,5 @@ pub enum PhysicalPlan {
     CreateTable {
         table: String,
         columns: Vec<String>,
-    }
+    },
 }
