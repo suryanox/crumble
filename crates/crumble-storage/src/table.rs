@@ -1,6 +1,7 @@
 use crate::error::StorageError;
 use crate::row::Row;
 use crumble_buffer::BufferPool;
+use crumble_wal::{WalRecord, WalWriter, read_all};
 use std::path::Path;
 
 const BUFFER_CAPACITY: usize = 64;
@@ -10,21 +11,37 @@ pub struct Table {
     name: String,
     columns: Vec<String>,
     pool: BufferPool,
+    wal: WalWriter,
 }
 
 impl Table {
     pub fn open(
         name: impl Into<String>,
         columns: Vec<String>,
-        path: impl AsRef<Path>,
+        dir: impl AsRef<Path>,
     ) -> Result<Self, StorageError> {
-        let pool = BufferPool::open(path, BUFFER_CAPACITY)?;
+        let name = name.into();
+        let dir = dir.as_ref();
 
-        Ok(Self {
-            name: name.into(),
+        let table_path = dir.join(format!("{name}.tbl"));
+        let wal_path = dir.join(format!("{name}.wal"));
+
+        let pool = BufferPool::open(&table_path, BUFFER_CAPACITY)?;
+        let wal = WalWriter::open(&wal_path)?;
+
+        let mut table = Self {
+            name,
             columns,
             pool,
-        })
+            wal,
+        };
+
+        for record in read_all(&wal_path)? {
+            let WalRecord::Insert { row_bytes, .. } = record;
+            table.apply_insert_bytes(&row_bytes)?;
+        }
+
+        Ok(table)
     }
 
     pub fn name(&self) -> &str {
@@ -44,19 +61,29 @@ impl Table {
         }
 
         let bytes = row.to_bytes()?;
-        let page_count = self.pool.page_count()?;
+
+        self.wal.append(&WalRecord::Insert {
+            table: self.name.clone(),
+            row_bytes: bytes.clone(),
+        })?;
+
+        self.apply_insert_bytes(&bytes)
+    }
+
+    fn apply_insert_bytes(&mut self, bytes: &[u8]) -> Result<(), StorageError> {
+        let page_count = self.pool.page_count();
 
         if page_count > 0 {
             let last_index = page_count - 1;
             let mut page = self.pool.fetch_page(last_index)?;
 
-            if page.insert_row(&bytes).is_some() {
+            if page.insert_row(bytes).is_some() {
                 return Ok(self.pool.write_page(last_index, &page)?);
             }
         }
 
         let mut page = crumble_buffer::Page::new();
-        if page.insert_row(&bytes).is_none() {
+        if page.insert_row(bytes).is_none() {
             return Err(StorageError::RowTooLarge);
         }
         Ok(self.pool.write_page(page_count, &page)?)
@@ -64,7 +91,7 @@ impl Table {
 
     pub fn rows(&mut self) -> Result<Vec<Row>, StorageError> {
         let mut rows = Vec::new();
-        let page_count = self.pool.page_count()?;
+        let page_count = self.pool.page_count();
 
         for page_index in 0..page_count {
             let page = self.pool.fetch_page(page_index)?;
@@ -89,7 +116,7 @@ mod tests {
     fn temp_table(columns: Vec<String>) -> (tempfile::TempDir, Table) {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("users.tbl");
-        let table = Table::open("users", columns, path).unwrap();
+        let table = Table::open("users", columns, dir.path()).unwrap();
         (dir, table)
     }
 

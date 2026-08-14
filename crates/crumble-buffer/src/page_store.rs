@@ -18,7 +18,10 @@ impl PageStore {
             .truncate(false)
             .open(path)?;
 
-        Ok(Self { file, read_count: 0 })
+        Ok(Self {
+            file,
+            read_count: 0,
+        })
     }
 
     pub fn read_page(&mut self, page_index: u32) -> Result<Page, BufferError> {

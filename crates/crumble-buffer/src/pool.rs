@@ -15,25 +15,28 @@ pub struct BufferPool {
     capacity: usize,
     frames: HashMap<u32, Frame>,
     lru_order: VecDeque<u32>,
+    page_count: u32,
 }
 
 impl BufferPool {
     pub fn open(path: impl AsRef<Path>, capacity: usize) -> Result<Self, BufferError> {
+        let mut store = PageStore::open(path)?;
+        let page_count = store.page_count()?;
         Ok(Self {
-            store: PageStore::open(path)?,
+            store,
             capacity,
             frames: HashMap::new(),
             lru_order: VecDeque::new(),
+            page_count,
         })
     }
-
 
     pub fn disk_read_count(&self) -> u64 {
         self.store.read_count()
     }
 
-    pub fn page_count(&mut self) -> Result<u32, BufferError> {
-        self.store.page_count()
+    pub fn page_count(&mut self) -> u32 {
+        self.page_count
     }
 
     // cache hit: clone and return and move it at back of lru, cache miss/real disk read
@@ -52,7 +55,9 @@ impl BufferPool {
     /// Caches the page and marks it dirty. Does NOT write to disk yet —
     /// that only happens on eviction or an explicit flush.
     pub fn write_page(&mut self, page_index: u32, page: &Page) -> Result<(), BufferError> {
-        self.insert_into_cache(page_index, page.clone(), true)
+        self.insert_into_cache(page_index, page.clone(), true)?;
+        self.page_count = self.page_count.max(page_index + 1);
+        Ok(())
     }
 
     /// Writes one dirty page to disk immediately and clears its dirty flag.
@@ -89,7 +94,12 @@ impl BufferPool {
         self.lru_order.push_back(page_index);
     }
 
-    fn insert_into_cache(&mut self, page_index: u32, page: Page, dirty: bool) -> Result<(), BufferError> {
+    fn insert_into_cache(
+        &mut self,
+        page_index: u32,
+        page: Page,
+        dirty: bool,
+    ) -> Result<(), BufferError> {
         if !self.frames.contains_key(&page_index) && self.frames.len() >= self.capacity {
             if let Some(evicted) = self.lru_order.pop_front() {
                 self.flush_page(evicted)?; // this is the one line standing between "fast write-back cache" and "silently loses data."
@@ -137,11 +147,19 @@ mod tests {
         assert_eq!(pool.disk_read_count(), 0);
 
         pool.fetch_page(0)?;
-        assert_eq!(pool.disk_read_count(), 0, "write_page should have cached it already");
+        assert_eq!(
+            pool.disk_read_count(),
+            0,
+            "write_page should have cached it already"
+        );
 
         pool.fetch_page(0)?;
         pool.fetch_page(0)?;
-        assert_eq!(pool.disk_read_count(), 0, "repeated fetches should stay cache hits");
+        assert_eq!(
+            pool.disk_read_count(),
+            0,
+            "repeated fetches should stay cache hits"
+        );
 
         Ok(())
     }
@@ -159,7 +177,11 @@ mod tests {
 
         // capacity is 2, so page 0 was evicted when page 2 was written
         pool.fetch_page(0)?;
-        assert_eq!(pool.disk_read_count(), 1, "page 0 should have been evicted and re-read");
+        assert_eq!(
+            pool.disk_read_count(),
+            1,
+            "page 0 should have been evicted and re-read"
+        );
 
         Ok(())
     }

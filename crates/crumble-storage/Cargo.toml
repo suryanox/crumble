@@ -9,3 +9,4 @@ serde = { version = "1.0.229", features = ["derive"] }
 bincode = { version = "=2.0.1", features = ["serde"] }
 tempfile = "3.27.0"
 crumble-buffer = {path = "../crumble-buffer"}
+crumble-wal = {path = "../crumble-wal"}

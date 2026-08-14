@@ -26,12 +26,12 @@ impl Catalog {
         columns: Vec<String>,
     ) -> Result<(), StorageError> {
         let name = name.into();
+
         if self.tables.contains_key(&name) {
             return Err(StorageError::TableAlreadyExists(name));
         }
 
-        let path = self.data_dir.join(format!("{name}.tbl"));
-        let table = Table::open(name.clone(), columns, path)?;
+        let table = Table::open(name.clone(), columns, &self.data_dir)?;
         self.tables.insert(name, table);
         Ok(())
     }

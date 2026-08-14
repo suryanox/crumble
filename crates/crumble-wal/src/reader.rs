@@ -1,8 +1,8 @@
+use crate::error::WalError;
+use crate::record::WalRecord;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
-use crate::error::WalError;
-use crate::record::WalRecord;
 
 pub fn read_all(path: impl AsRef<Path>) -> Result<Vec<WalRecord>, WalError> {
     let mut file = match File::open(path) {
@@ -16,7 +16,7 @@ pub fn read_all(path: impl AsRef<Path>) -> Result<Vec<WalRecord>, WalError> {
     loop {
         let mut len_bytes = [0u8; 4];
         match file.read_exact(&mut len_bytes) {
-            Ok(()) => {},
+            Ok(()) => {}
             Err(err) if err.kind() == std::io::ErrorKind::UnexpectedEof => break,
             Err(err) => return Err(err.into()),
         }
@@ -31,7 +31,10 @@ pub fn read_all(path: impl AsRef<Path>) -> Result<Vec<WalRecord>, WalError> {
             Err(_) => break,
         }
 
-        match bincode::serde::decode_from_slice::<WalRecord, _>(&payload, bincode::config::standard()) {
+        match bincode::serde::decode_from_slice::<WalRecord, _>(
+            &payload,
+            bincode::config::standard(),
+        ) {
             Ok((record, _)) => records.push(record),
             Err(_) => break,
         }
