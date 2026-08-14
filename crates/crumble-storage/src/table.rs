@@ -180,4 +180,59 @@ mod tests {
         assert_eq!(table.rows()?.len(), 1);
         Ok(())
     }
+
+    #[test]
+    fn recovers_dirty_writes_after_simulated_crash() -> Result<(), StorageError> {
+        let dir = tempfile::tempdir()?;
+
+        {
+            let mut table = Table::open("users", vec!["name".to_string()], dir.path())?;
+            table.insert(Row::new(vec![Value::String("alice".to_string())]))?;
+            table.insert(Row::new(vec![Value::String("bob".to_string())]))?;
+            // table is dropped here WITHOUT any explicit flush/checkpoint —
+            // simulating a process crash right after these writes returned.
+            // Both inserts are only durable via the WAL at this point.
+        }
+
+        let mut recovered = Table::open("users", vec!["name".to_string()], dir.path())?;
+        let rows = recovered.rows()?;
+
+        assert_eq!(
+            rows.len(),
+            2,
+            "both writes should recover from the WAL alone"
+        );
+        assert_eq!(rows[0], Row::new(vec![Value::String("alice".to_string())]));
+        assert_eq!(rows[1], Row::new(vec![Value::String("bob".to_string())]));
+
+        Ok(())
+    }
+
+    #[test]
+    fn replay_does_not_duplicate_already_flushed_rows() -> Result<(), StorageError> {
+        let dir = tempfile::tempdir()?;
+
+        {
+            let mut table = Table::open("users", vec!["name".to_string()], dir.path())?;
+            table.insert(Row::new(vec![Value::String("alice".to_string())]))?;
+            // Force this page to actually flush to disk (not just cached-dirty),
+            // by evicting it: fill the buffer pool past capacity with other pages.
+            for i in 0..BUFFER_CAPACITY {
+                table.insert(Row::new(vec![Value::String(format!("filler-{i}"))]))?;
+            }
+        }
+
+        let mut recovered = Table::open("users", vec!["name".to_string()], dir.path())?;
+        let rows = recovered.rows()?;
+        let alice_count = rows
+            .iter()
+            .filter(|r| r.values() == [Value::String("alice".to_string())])
+            .count();
+
+        assert_eq!(
+            alice_count, 1,
+            "a row already flushed via eviction must not be replayed again"
+        );
+        Ok(())
+    }
 }
