@@ -1,33 +1,33 @@
-use crate::error::WalError;
-use crate::record::WalRecord;
 use std::fs::File;
-use std::io::Read;
+use std::io::{ErrorKind, Read, Seek};
 use std::path::Path;
 
-pub fn read_all(path: impl AsRef<Path>) -> Result<Vec<WalRecord>, WalError> {
+use crate::error::WalError;
+use crate::record::WalRecord;
+
+pub fn read_all(path: impl AsRef<Path>) -> Result<Vec<(u64, WalRecord)>, WalError> {
     let mut file = match File::open(path) {
         Ok(file) => file,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(err) if err.kind() == ErrorKind::NotFound => return Ok(Vec::new()),
         Err(err) => return Err(err.into()),
     };
 
     let mut records = Vec::new();
 
     loop {
+        let lsn = file.stream_position()?;
+
         let mut len_bytes = [0u8; 4];
         match file.read_exact(&mut len_bytes) {
             Ok(()) => {}
-            Err(err) if err.kind() == std::io::ErrorKind::UnexpectedEof => break,
+            Err(err) if err.kind() == ErrorKind::UnexpectedEof => break,
             Err(err) => return Err(err.into()),
         }
-
         let len = u32::from_le_bytes(len_bytes) as usize;
 
         let mut payload = vec![0u8; len];
-
         match file.read_exact(&mut payload) {
             Ok(()) => {}
-            Err(err) if err.kind() == std::io::ErrorKind::UnexpectedEof => break,
             Err(_) => break,
         }
 
@@ -35,9 +35,10 @@ pub fn read_all(path: impl AsRef<Path>) -> Result<Vec<WalRecord>, WalError> {
             &payload,
             bincode::config::standard(),
         ) {
-            Ok((record, _)) => records.push(record),
+            Ok((record, _)) => records.push((lsn, record)),
             Err(_) => break,
         }
     }
+
     Ok(records)
 }

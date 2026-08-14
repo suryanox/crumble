@@ -5,7 +5,6 @@ use crumble_wal::{WalRecord, WalWriter, read_all};
 use std::path::Path;
 
 const BUFFER_CAPACITY: usize = 64;
-
 #[derive(Debug)]
 pub struct Table {
     name: String,
@@ -36,9 +35,13 @@ impl Table {
             wal,
         };
 
-        for record in read_all(&wal_path)? {
-            let WalRecord::Insert { row_bytes, .. } = record;
-            table.apply_insert_bytes(&row_bytes)?;
+        for (_lsn, record) in read_all(&wal_path)? {
+            let WalRecord::Insert {
+                page_index,
+                row_bytes,
+                ..
+            } = record;
+            table.apply_at(page_index, &row_bytes)?;
         }
 
         Ok(table)
@@ -61,16 +64,24 @@ impl Table {
         }
 
         let bytes = row.to_bytes()?;
+        let (page_index, page) = self.prepare_insert(&bytes)?;
 
         self.wal.append(&WalRecord::Insert {
             table: self.name.clone(),
-            row_bytes: bytes.clone(),
+            page_index,
+            row_bytes: bytes,
         })?;
 
-        self.apply_insert_bytes(&bytes)
+        Ok(self.pool.write_page(page_index, &page)?)
     }
 
-    fn apply_insert_bytes(&mut self, bytes: &[u8]) -> Result<(), StorageError> {
+    /// Decides which page a new row belongs on, and returns that page
+    /// with the row already inserted into it — NOT yet written to the pool.
+    /// Logging happens against this decision before it's committed.
+    fn prepare_insert(
+        &mut self,
+        bytes: &[u8],
+    ) -> Result<(u32, crumble_buffer::Page), StorageError> {
         let page_count = self.pool.page_count();
 
         if page_count > 0 {
@@ -78,7 +89,7 @@ impl Table {
             let mut page = self.pool.fetch_page(last_index)?;
 
             if page.insert_row(bytes).is_some() {
-                return Ok(self.pool.write_page(last_index, &page)?);
+                return Ok((last_index, page));
             }
         }
 
@@ -86,7 +97,24 @@ impl Table {
         if page.insert_row(bytes).is_none() {
             return Err(StorageError::RowTooLarge);
         }
-        Ok(self.pool.write_page(page_count, &page)?)
+        Ok((page_count, page))
+    }
+
+    /// Inserts bytes at an EXACT, already-decided page index used by WAL
+    /// replay, which must reproduce the original page assignment exactly,
+    /// not recompute a fresh one.
+    fn apply_at(&mut self, page_index: u32, bytes: &[u8]) -> Result<(), StorageError> {
+        let mut page = if page_index < self.pool.page_count() {
+            self.pool.fetch_page(page_index)?
+        } else {
+            crumble_buffer::Page::new()
+        };
+
+        if page.insert_row(bytes).is_none() {
+            return Err(StorageError::RowTooLarge);
+        }
+
+        Ok(self.pool.write_page(page_index, &page)?)
     }
 
     pub fn rows(&mut self) -> Result<Vec<Row>, StorageError> {
@@ -95,7 +123,6 @@ impl Table {
 
         for page_index in 0..page_count {
             let page = self.pool.fetch_page(page_index)?;
-
             for slot in 0..page.slot_count() {
                 let bytes = page
                     .get_row(slot)
@@ -115,7 +142,6 @@ mod tests {
 
     fn temp_table(columns: Vec<String>) -> (tempfile::TempDir, Table) {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("users.tbl");
         let table = Table::open("users", columns, dir.path()).unwrap();
         (dir, table)
     }
