@@ -119,7 +119,7 @@ pub fn execute(plan: &PhysicalPlan, catalog: &mut Catalog) -> Result<RowSet, Exe
                 for (col, literal) in assignments {
                     let index = columns
                         .iter()
-                        .position(|col| col == col)
+                        .position(|c| c == col)
                         .ok_or_else(|| ExecError::ColumnNotFound(col.clone()))?;
                     values[index] = literal_to_value(literal);
                 }
