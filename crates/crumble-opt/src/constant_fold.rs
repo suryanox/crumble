@@ -30,6 +30,10 @@ fn fold_plan(plan: LogicalPlan) -> LogicalPlan {
             rows,
         },
         LogicalPlan::CreateTable { table, columns } => LogicalPlan::CreateTable { table, columns },
+        LogicalPlan::Delete { table, predicate } => LogicalPlan::Delete {
+            table,
+            predicate: predicate.map(fold_expr),
+        },
     }
 }
 

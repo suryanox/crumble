@@ -25,5 +25,6 @@ pub fn to_physical(plan: LogicalPlan) -> PhysicalPlan {
             rows,
         },
         LogicalPlan::CreateTable { table, columns } => PhysicalPlan::CreateTable { table, columns },
+        LogicalPlan::Delete { table, predicate } => PhysicalPlan::Delete { table, predicate },
     }
 }

@@ -26,4 +26,8 @@ pub enum LogicalPlan {
         table: String,
         columns: Vec<String>,
     },
+    Delete {
+        table: String,
+        predicate: Option<Expr>,
+    },
 }

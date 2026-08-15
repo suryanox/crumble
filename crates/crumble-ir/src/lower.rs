@@ -1,8 +1,8 @@
 use crate::{BinaryOperator, Expr, Literal, LogicalPlan, LowerError};
 use crumble_sql::Ast;
 use sqlparser::ast::{
-    BinaryOperator as SqlBinaryOperator, Expr as SqlExpr, Insert, Select, SelectItem, SetExpr,
-    Statement, TableFactor, TableWithJoins, Value as SqlValue,
+    BinaryOperator as SqlBinaryOperator, CreateTable, Expr as SqlExpr, Insert, Select, SelectItem,
+    SetExpr, Statement, TableFactor, TableWithJoins, Value as SqlValue,
 };
 
 pub fn lower(ast: &Ast) -> Result<LogicalPlan, LowerError> {
@@ -18,19 +18,38 @@ fn lower_statement(statement: &Statement) -> Result<LogicalPlan, LowerError> {
     match statement {
         Statement::Query(query) => lower_select_expr(&query.body),
         Statement::Insert(insert) => lower_insert(insert),
-        Statement::CreateTable(create_table) => {
-            let table = create_table.name.to_string();
-
-            let columns = create_table
-                .columns
-                .iter()
-                .map(|col| col.name.value.clone())
-                .collect();
-
-            Ok(LogicalPlan::CreateTable { table, columns })
-        }
+        Statement::CreateTable(create_table) => lower_create(create_table),
+        Statement::Delete(delete) => lower_delete(delete),
         other => Err(LowerError::Unsupported(format!("statement: {other:?}"))),
     }
+}
+
+fn lower_create(create_table: &CreateTable) -> Result<LogicalPlan, LowerError> {
+    let table = create_table.name.to_string();
+
+    let columns = create_table
+        .columns
+        .iter()
+        .map(|col| col.name.value.clone())
+        .collect();
+
+    Ok(LogicalPlan::CreateTable { table, columns })
+}
+
+fn lower_delete(delete: &sqlparser::ast::Delete) -> Result<LogicalPlan, LowerError> {
+    let table = delete
+        .from
+        .to_string()
+        .trim_start_matches("FROM ")
+        .split(',')
+        .next()
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+
+    let predicate = delete.selection.as_ref().map(lower_expr).transpose()?;
+
+    Ok(LogicalPlan::Delete { table, predicate })
 }
 
 fn lower_insert(insert: &Insert) -> Result<LogicalPlan, LowerError> {

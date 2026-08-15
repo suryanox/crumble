@@ -6,7 +6,7 @@ use crumble_exec::execute;
 use crumble_ir::{lower, to_physical};
 use crumble_opt::{ConstantFold, OptimizationPass};
 use crumble_sql::parse;
-use crumble_storage::{Catalog, Row, StorageError, Value};
+use crumble_storage::{Catalog, StorageError};
 
 fn seeded_catalog() -> Result<Catalog, StorageError> {
     Catalog::open("./crumble-data")
