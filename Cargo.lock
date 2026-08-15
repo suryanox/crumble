@@ -90,6 +90,7 @@ dependencies = [
  "bincode",
  "crumble-buffer",
  "serde",
+ "tempfile",
  "thiserror",
 ]
 

@@ -8,3 +8,6 @@ serde = { version = "1.0.229", features = ["derive"] }
 bincode = {version = "=2.0.1", features = ["serde"]}
 thiserror = "2.0.20"
 crumble-buffer = {path = "../crumble-buffer"}
+
+[dev-dependencies]
+tempfile = "3.27.0"
