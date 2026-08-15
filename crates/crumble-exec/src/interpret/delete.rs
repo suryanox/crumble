@@ -7,7 +7,7 @@ pub(super) fn delete(
     catalog: &mut Catalog,
     table: &String,
     predicate: &Option<Expr>,
-) -> Result<Result<RowSet, ExecError>, ExecError> {
+) -> Result<RowSet, ExecError> {
     let target = catalog.get_mut(table)?;
     let located_rows = target.rows_with_location()?;
 
@@ -27,8 +27,8 @@ pub(super) fn delete(
         }
     }
 
-    Ok(Ok(RowSet::new(
+    Ok(RowSet::new(
         vec!["deleted".to_string()],
         vec![Row::new(vec![Value::Int(deleted)])],
-    )))
+    ))
 }

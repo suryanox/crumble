@@ -9,7 +9,7 @@ pub(super) fn insert(
     table: &String,
     columns: &Vec<String>,
     rows: &Vec<Vec<Literal>>,
-) -> Result<Result<RowSet, ExecError>, ExecError> {
+) -> Result<RowSet, ExecError> {
     let target = catalog.get_mut(table)?;
     let table_columns = target.columns().to_vec();
 
@@ -19,5 +19,5 @@ pub(super) fn insert(
         target.insert(Row::new(ordered))?;
     }
 
-    Ok(Ok(RowSet::new(Vec::new(), Vec::new())))
+    Ok(RowSet::new(Vec::new(), Vec::new()))
 }

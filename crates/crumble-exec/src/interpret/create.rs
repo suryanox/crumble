@@ -5,7 +5,7 @@ pub(super) fn create(
     catalog: &mut Catalog,
     table: &String,
     columns: &Vec<String>,
-) -> Result<Result<RowSet, ExecError>, ExecError> {
+) -> Result<RowSet, ExecError> {
     catalog.create_table(table, columns.clone())?;
-    Ok(Ok(RowSet::new(Vec::new(), Vec::new())))
+    Ok(RowSet::new(Vec::new(), Vec::new()))
 }

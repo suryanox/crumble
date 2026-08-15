@@ -8,7 +8,7 @@ pub(super) fn update(
     table: &String,
     assignments: &Vec<(String, Literal)>,
     predicate: &Option<Expr>,
-) -> Result<Result<RowSet, ExecError>, ExecError> {
+) -> Result<RowSet, ExecError> {
     let target = catalog.get_mut(table)?;
     let columns = target.columns().to_vec();
     let located_rows = target.rows_with_location()?;
@@ -40,8 +40,8 @@ pub(super) fn update(
         updated += 1;
     }
 
-    Ok(Ok(RowSet::new(
+    Ok(RowSet::new(
         vec!["updated".to_string()],
         vec![Row::new(vec![Value::Int(updated)])],
-    )))
+    ))
 }

@@ -6,7 +6,7 @@ pub(super) fn project(
     catalog: &mut Catalog,
     input: &Box<PhysicalPlan>,
     columns: &Vec<String>,
-) -> Result<Result<RowSet, ExecError>, ExecError> {
+) -> Result<RowSet, ExecError> {
     let input = execute(input, catalog)?;
     let mut indices = Vec::with_capacity(columns.len());
 
@@ -26,5 +26,5 @@ pub(super) fn project(
         })
         .collect();
 
-    Ok(Ok(RowSet::new(columns.clone(), projected_rows)))
+    Ok(RowSet::new(columns.clone(), projected_rows))
 }

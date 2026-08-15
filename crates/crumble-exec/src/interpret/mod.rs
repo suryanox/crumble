@@ -21,22 +21,21 @@ mod insert;
 mod update;
 pub fn execute(plan: &PhysicalPlan, catalog: &mut Catalog) -> Result<RowSet, ExecError> {
     match plan {
-        PhysicalPlan::SeqScan { table } => seqscan(catalog, table)?,
+        PhysicalPlan::SeqScan { table } => seqscan(catalog, table),
         PhysicalPlan::Filter { input, predicate } => filter(catalog, input, predicate),
-        PhysicalPlan::Project { input, columns } => project(catalog, input, columns)?,
+        PhysicalPlan::Project { input, columns } => project(catalog, input, columns),
         PhysicalPlan::Insert {
             table,
             columns,
             rows,
-        } => insert(catalog, table, columns, rows)?,
-        PhysicalPlan::CreateTable { table, columns } => create(catalog, table, columns)?,
-
-        PhysicalPlan::Delete { table, predicate } => delete(catalog, table, predicate)?,
+        } => insert(catalog, table, columns, rows),
+        PhysicalPlan::CreateTable { table, columns } => create(catalog, table, columns),
+        PhysicalPlan::Delete { table, predicate } => delete(catalog, table, predicate),
         PhysicalPlan::Update {
             table,
             assignments,
             predicate,
-        } => update(catalog, table, assignments, predicate)?,
+        } => update(catalog, table, assignments, predicate),
     }
 }
 
