@@ -1,6 +1,6 @@
 pub const PAGE_SIZE: usize = 4096;
 const HEADER_SIZE: usize = 12; // 2 bytes slot_count, 2 bytes free_space_offset and 8 bytes of page lsn
-const SLOT_SIZE: usize = 4;
+const SLOT_SIZE: usize = 5;
 #[derive(Debug, Clone)]
 pub struct Page {
     bytes: [u8; PAGE_SIZE],
@@ -67,6 +67,8 @@ impl Page {
         self.bytes[slot_dir_end + 2..slot_dir_end + 4]
             .copy_from_slice(&(row_len as u16).to_le_bytes());
 
+        self.bytes[slot_dir_end + 4] = 1;
+
         self.set_free_space_offset(row_offset as u16);
         self.set_slot_count(slot_count + 1);
 
@@ -75,7 +77,8 @@ impl Page {
 
     pub fn get_row(&self, slot_index: u16) -> Option<&[u8]> {
         // Bounds check first
-        if slot_index >= self.slot_count() {
+        if slot_index >= self.slot_count() || !self.is_live(slot_index) {
+            // This is the actual point of the tombstone
             return None;
         }
 
@@ -90,6 +93,22 @@ impl Page {
 
         // Returning a slice, not a copy &[u8] borrows straight from self.bytes, zero-copy. Whoever calls this decides whether to clone/deserialize it.
         Some(&self.bytes[row_offset..row_offset + row_len])
+    }
+
+    pub fn delete_row(&mut self, slot_index: u16) -> bool {
+        if slot_index >= self.slot_count() {
+            return false;
+        }
+
+        let slot_offset = HEADER_SIZE + (slot_index as usize) * SLOT_SIZE;
+        self.bytes[slot_offset + 4] = 0; // 0 = deleted, 1 = Live
+
+        true
+    }
+
+    fn is_live(&self, slot_index: u16) -> bool {
+        let slot_offset = HEADER_SIZE + (slot_index as usize) * SLOT_SIZE;
+        self.bytes[slot_offset + 4] == 1
     }
 
     pub fn from_bytes(bytes: [u8; PAGE_SIZE]) -> Self {
@@ -138,5 +157,20 @@ mod tests {
         let big_row = vec![0u8; PAGE_SIZE];
 
         assert_eq!(page.insert_row(&big_row), None);
+    }
+
+    #[test]
+    fn deleted_row_is_not_returned() {
+        let mut page = Page::new();
+        let slot = page.insert_row(b"alice").unwrap();
+
+        assert!(page.delete_row(slot));
+        assert_eq!(page.get_row(slot), None);
+    }
+
+    #[test]
+    fn deleting_out_of_range_slot_returns_false() {
+        let mut page = Page::new();
+        assert!(!page.delete_row(0));
     }
 }

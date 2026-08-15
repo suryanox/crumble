@@ -35,20 +35,31 @@ impl Table {
             wal,
         };
 
+        // replay
         for (lsn, record) in read_all(&wal_path)? {
-            let WalRecord::Insert {
-                page_index,
-                row_bytes,
-                ..
-            } = record;
+            match record {
+                WalRecord::Insert {
+                    page_index,
+                    row_bytes,
+                    ..
+                } => {
+                    let already_durable = page_index < table.pool.page_count()
+                        && table.pool.fetch_page(page_index)?.page_lsn() >= lsn;
 
-            // for each replayed record, read the page's current stamped LSN. If it's >=
-            // this record's LSN, that record's effect is already baked into what's on disk (whether via eviction-flush or a clean shutdown)
-            let already_durable = page_index < table.pool.page_count()
-                && table.pool.fetch_page(page_index)?.page_lsn() >= lsn;
+                    if !already_durable {
+                        table.apply_at(page_index, &row_bytes, lsn)?;
+                    }
+                }
+                WalRecord::Delete {
+                    page_index, slot, ..
+                } => {
+                    let already_durable = page_index < table.pool.page_count()
+                        && table.pool.fetch_page(page_index)?.page_lsn() >= lsn;
 
-            if !already_durable {
-                table.apply_at(page_index, &row_bytes, lsn)?;
+                    if !already_durable {
+                        table.apply_delete_at(page_index, lsn, slot)?;
+                    }
+                }
             }
         }
 
@@ -134,14 +145,50 @@ impl Table {
         for page_index in 0..page_count {
             let page = self.pool.fetch_page(page_index)?;
             for slot in 0..page.slot_count() {
-                let bytes = page
-                    .get_row(slot)
-                    .expect("slot index within slot_count must be valid");
-                rows.push(Row::from_bytes(bytes)?);
+                if let Some(bytes) = page.get_row(slot) {
+                    rows.push(Row::from_bytes(bytes)?);
+                }
             }
         }
 
         Ok(rows)
+    }
+
+    pub fn rows_with_location(&mut self) -> Result<Vec<((u32, u16), Row)>, StorageError> {
+        let mut rows = Vec::new();
+        let page_count = self.pool.page_count();
+
+        for page_index in 0..page_count {
+            let page = self.pool.fetch_page(page_index)?;
+            for slot in 0..page.slot_count() {
+                if let Some(bytes) = page.get_row(slot) {
+                    rows.push(((page_index, slot), Row::from_bytes(bytes)?));
+                }
+            }
+        }
+        Ok(rows)
+    }
+
+    pub fn delete_at(&mut self, page_index: u32, slot: u16) -> Result<(), StorageError> {
+        let lsn = self.wal.append(&WalRecord::Delete {
+            table: self.name.clone(),
+            page_index,
+            slot,
+        })?;
+
+        self.apply_delete_at(page_index, lsn, slot)
+    }
+
+    fn apply_delete_at(
+        &mut self,
+        page_index: u32,
+        lsn: u64,
+        slot: u16,
+    ) -> Result<(), StorageError> {
+        let mut page = self.pool.fetch_page(page_index)?;
+        page.delete_row(slot);
+        page.set_page_lsn(lsn);
+        Ok(self.pool.write_page(page_index, &page)?)
     }
 }
 
