@@ -86,6 +86,12 @@ dependencies = [
 [[package]]
 name = "crumble-index"
 version = "0.1.0"
+dependencies = [
+ "bincode",
+ "crumble-buffer",
+ "serde",
+ "thiserror",
+]
 
 [[package]]
 name = "crumble-ir"
