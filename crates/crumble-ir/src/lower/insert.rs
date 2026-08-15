@@ -1,6 +1,6 @@
-use sqlparser::ast::{Insert, SetExpr};
-use crate::{Literal, LogicalPlan, LowerError};
 use crate::lower::expr::lower_literal_expr;
+use crate::{Literal, LogicalPlan, LowerError};
+use sqlparser::ast::{Insert, SetExpr};
 
 pub(super) fn lower_insert(insert: &Insert) -> Result<LogicalPlan, LowerError> {
     let table = insert.table.to_string();

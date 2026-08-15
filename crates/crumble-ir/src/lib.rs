@@ -1,9 +1,9 @@
 mod error;
 mod expr;
+mod lower;
 mod physical;
 mod plan;
 mod to_physical;
-mod lower;
 
 pub use error::LowerError;
 pub use expr::{BinaryOperator, Expr, Literal};

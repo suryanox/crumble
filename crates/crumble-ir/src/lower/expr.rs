@@ -1,7 +1,5 @@
-use sqlparser::ast::{
-    BinaryOperator as SqlBinaryOperator, Expr as SqlExpr, Value as SqlValue,
-};
 use crate::{BinaryOperator, Expr, Literal, LowerError};
+use sqlparser::ast::{BinaryOperator as SqlBinaryOperator, Expr as SqlExpr, Value as SqlValue};
 pub(in crate::lower) fn lower_literal_expr(expr: &SqlExpr) -> Result<Literal, LowerError> {
     match expr {
         SqlExpr::Value(value_with_span) => lower_value(&value_with_span.value),
@@ -40,7 +38,9 @@ pub(in crate::lower) fn lower_value(value: &SqlValue) -> Result<Literal, LowerEr
     }
 }
 
-pub(in crate::lower) fn lower_binary_operator(op: &SqlBinaryOperator) -> Result<BinaryOperator, LowerError> {
+pub(in crate::lower) fn lower_binary_operator(
+    op: &SqlBinaryOperator,
+) -> Result<BinaryOperator, LowerError> {
     match op {
         SqlBinaryOperator::Eq => Ok(BinaryOperator::Eq),
         SqlBinaryOperator::NotEq => Ok(BinaryOperator::NotEq),

@@ -1,5 +1,5 @@
-use crate::{LogicalPlan, LowerError};
 use crate::lower::expr::lower_expr;
+use crate::{LogicalPlan, LowerError};
 
 pub(super) fn lower_delete(delete: &sqlparser::ast::Delete) -> Result<LogicalPlan, LowerError> {
     let table = delete

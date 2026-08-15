@@ -1,5 +1,5 @@
-use sqlparser::ast::CreateTable;
 use crate::{LogicalPlan, LowerError};
+use sqlparser::ast::CreateTable;
 
 pub(super) fn lower_create(create_table: &CreateTable) -> Result<LogicalPlan, LowerError> {
     let table = create_table.name.to_string();

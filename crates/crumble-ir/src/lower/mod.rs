@@ -1,17 +1,17 @@
-mod select;
 mod create;
-mod update;
-mod insert;
 mod delete;
 mod expr;
-use crate::{LogicalPlan, LowerError};
-use crumble_sql::Ast;
-use sqlparser::ast::Statement;
+mod insert;
+mod select;
+mod update;
 use crate::lower::create::lower_create;
 use crate::lower::delete::lower_delete;
 use crate::lower::insert::lower_insert;
 use crate::lower::select::lower_select_expr;
 use crate::lower::update::lower_update;
+use crate::{LogicalPlan, LowerError};
+use crumble_sql::Ast;
+use sqlparser::ast::Statement;
 
 pub fn lower(ast: &Ast) -> Result<LogicalPlan, LowerError> {
     let statement = ast

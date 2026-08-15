@@ -1,6 +1,5 @@
-
-use crate::{LogicalPlan, LowerError};
 use crate::lower::expr::lower_expr;
+use crate::{LogicalPlan, LowerError};
 use sqlparser::ast::{Expr as SqlExpr, Select, SelectItem, SetExpr, TableFactor, TableWithJoins};
 pub(super) fn lower_select_expr(set_expr: &SetExpr) -> Result<LogicalPlan, LowerError> {
     match set_expr {
