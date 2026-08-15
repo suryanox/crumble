@@ -2,7 +2,7 @@ use crate::{BinaryOperator, Expr, Literal, LogicalPlan, LowerError};
 use crumble_sql::Ast;
 use sqlparser::ast::{
     BinaryOperator as SqlBinaryOperator, CreateTable, Expr as SqlExpr, Insert, Select, SelectItem,
-    SetExpr, Statement, TableFactor, TableWithJoins, Value as SqlValue,
+    SetExpr, Statement, TableFactor, TableWithJoins, Update, Value as SqlValue,
 };
 
 pub fn lower(ast: &Ast) -> Result<LogicalPlan, LowerError> {
@@ -20,8 +20,34 @@ fn lower_statement(statement: &Statement) -> Result<LogicalPlan, LowerError> {
         Statement::Insert(insert) => lower_insert(insert),
         Statement::CreateTable(create_table) => lower_create(create_table),
         Statement::Delete(delete) => lower_delete(delete),
+        Statement::Update(update) => lower_update(update),
         other => Err(LowerError::Unsupported(format!("statement: {other:?}"))),
     }
+}
+
+fn lower_update(update: &Update) -> Result<LogicalPlan, LowerError> {
+    let table_name = match &update.table.relation {
+        TableFactor::Table { name, .. } => name.to_string(),
+        other => return Err(LowerError::Unsupported(format!("UPDATE target: {other:?}"))),
+    };
+
+    let assignments = update
+        .assignments
+        .iter()
+        .map(|assignment| {
+            let col = assignment.target.to_string();
+            let val = lower_literal_expr(&assignment.value)?;
+            Ok((col, val))
+        })
+        .collect::<Result<Vec<_>, LowerError>>()?;
+
+    let predicate = update.selection.as_ref().map(lower_expr).transpose()?;
+
+    Ok(LogicalPlan::Update {
+        table: table_name,
+        assignments,
+        predicate,
+    })
 }
 
 fn lower_create(create_table: &CreateTable) -> Result<LogicalPlan, LowerError> {

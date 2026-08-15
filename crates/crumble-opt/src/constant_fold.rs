@@ -34,6 +34,15 @@ fn fold_plan(plan: LogicalPlan) -> LogicalPlan {
             table,
             predicate: predicate.map(fold_expr),
         },
+        LogicalPlan::Update {
+            table,
+            assignments,
+            predicate,
+        } => LogicalPlan::Update {
+            table,
+            assignments,
+            predicate: predicate.map(fold_expr),
+        },
     }
 }
 

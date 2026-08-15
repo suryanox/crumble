@@ -33,4 +33,9 @@ pub enum PhysicalPlan {
         table: String,
         predicate: Option<Expr>,
     },
+    Update {
+        table: String,
+        assignments: Vec<(String, Literal)>,
+        predicate: Option<Expr>,
+    },
 }
