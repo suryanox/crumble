@@ -60,6 +60,9 @@ impl Table {
                         table.apply_delete_at(page_index, lsn, slot)?;
                     }
                 }
+                WalRecord::WritePage { .. } => {
+                    unreachable!("Table's WAL never writes WritePage records — that's BTree-only")
+                }
             }
         }
 

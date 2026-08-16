@@ -43,7 +43,7 @@ impl Catalog {
 
         let mut indexes = HashMap::new();
         for name in meta.indexes.keys() {
-            let tree = BTree::open(data_dir.join(format!("{name}.idx")))?;
+            let tree = BTree::open(name, &data_dir)?;
             indexes.insert(name.clone(), tree);
         }
 
@@ -113,7 +113,7 @@ impl Catalog {
             return Err(StorageError::TableAlreadyExists(index_name));
         }
 
-        let index_path = self.data_dir.join(format!("{index_name}.idx"));
+        let mut tree = BTree::open(&index_name, &self.data_dir)?;
 
         let target = self.get_mut(&table_name)?;
         let col_pos = target
@@ -121,8 +121,6 @@ impl Catalog {
             .iter()
             .position(|c| c == &column)
             .ok_or_else(|| StorageError::TableNotFound(format!("{table_name}.{column}")))?;
-
-        let mut tree = BTree::open(index_path)?;
 
         for ((page_index, slot), row) in target.rows_with_location()? {
             if let Some(key) = value_to_index_key(&row.values()[col_pos]) {

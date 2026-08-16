@@ -1,3 +1,4 @@
+use crumble_wal::WalError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -10,4 +11,7 @@ pub enum IndexError {
 
     #[error("index node is full")]
     NodeFull,
+
+    #[error(transparent)]
+    Wal(#[from] WalError),
 }

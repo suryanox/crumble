@@ -1,6 +1,7 @@
+use crumble_wal::{WalRecord, WalWriter, read_all};
 use std::path::Path;
 
-use crumble_buffer::BufferPool;
+use crumble_buffer::{BufferPool, PAGE_SIZE, Page};
 
 use crate::error::IndexError;
 use crate::key::IndexKey;
@@ -25,18 +26,64 @@ const ROOT_PAGE: u32 = 0;
 #[derive(Debug)]
 pub struct BTree {
     pool: BufferPool,
+    wal: WalWriter,
 }
 
 impl BTree {
-    pub fn open(path: impl AsRef<Path>) -> Result<Self, IndexError> {
-        let mut pool = BufferPool::open(path, CAPACITY)?;
+    pub fn open(name: impl Into<String>, dir: impl AsRef<Path>) -> Result<Self, IndexError> {
+        let name = name.into();
+        let dir = dir.as_ref();
 
-        if pool.page_count() == 0 {
-            let page = build_leaf_page(&[])?;
-            pool.write_page(0, &page)?;
+        let pages_path = dir.join(format!("{name}.idx"));
+        let wal_path = dir.join(format!("{name}.idx.wal"));
+
+        let pool = BufferPool::open(&pages_path, CAPACITY)?;
+        let wal = WalWriter::open(&wal_path)?;
+
+        let mut tree = Self { pool, wal };
+
+        for (lsn, record) in read_all(&wal_path)? {
+            let WalRecord::WritePage {
+                page_index,
+                page_data: page_bytes,
+            } = record
+            else {
+                continue;
+            };
+
+            let already_durable = page_index < tree.pool.page_count()
+                && tree.pool.fetch_page(page_index)?.page_lsn() >= lsn;
+
+            if !already_durable {
+                let bytes: [u8; PAGE_SIZE] = page_bytes
+                    .try_into()
+                    .map_err(|_| IndexError::Encoding("corrupt page in WAL".to_string()))?;
+                tree.pool.write_page(page_index, &Page::from_bytes(bytes))?;
+            }
         }
 
-        Ok(Self { pool })
+        if tree.pool.page_count() == 0 {
+            let mut page = build_leaf_page(&[])?;
+            tree.write_page_durable(ROOT_PAGE, &mut page)?;
+        }
+
+        Ok(tree)
+    }
+
+    /// Every real, committed page write goes through here: log the complete
+    /// new page bytes (fsync, wait for it), stamp the resulting LSN into the
+    /// page itself, then write it to the buffer pool. Same discipline as
+    /// crumble-storage::Table, applied to whole-page writes instead of
+    /// single-row inserts.
+    fn write_page_durable(&mut self, page_index: u32, page: &mut Page) -> Result<(), IndexError> {
+        let lsn = self.wal.append(&WalRecord::WritePage {
+            page_index,
+            page_data: page.as_bytes().to_vec(),
+        })?;
+
+        page.set_page_lsn(lsn);
+        self.pool.write_page(page_index, page)?;
+        Ok(())
     }
 
     pub fn search(&mut self, key: &IndexKey) -> Result<Vec<(u32, u16)>, IndexError> {
@@ -62,16 +109,13 @@ impl BTree {
 
     pub fn insert(&mut self, key: IndexKey, page_index: u32, slot: u16) -> Result<(), IndexError> {
         let path = self.path_to_leaf(&key)?;
-
         let leaf_page = *path.last().expect("path always has at least the root");
 
         let mut entries = read_leaf_entries(&self.pool.fetch_page(leaf_page)?)?;
-
         let insert_at = entries
             .iter()
-            .position(|e| e.key == key)
+            .position(|e| e.key > key)
             .unwrap_or(entries.len());
-
         entries.insert(
             insert_at,
             LeafEntry {
@@ -82,12 +126,12 @@ impl BTree {
         );
 
         match build_leaf_page(&entries) {
-            Ok(page) => {
-                self.pool.write_page(leaf_page, &page)?;
+            Ok(mut page) => {
+                self.write_page_durable(leaf_page, &mut page)?;
                 Ok(())
             }
             Err(IndexError::NodeFull) => self.split_leaf(&path, entries),
-            Err(e) => Err(e),
+            Err(err) => Err(err),
         }
     }
 
@@ -98,6 +142,7 @@ impl BTree {
         loop {
             let page = self.pool.fetch_page(current)?;
             let header = read_header(&page)?;
+
             if header.is_leaf {
                 return Ok(path);
             }
@@ -115,15 +160,15 @@ impl BTree {
         let right: Vec<LeafEntry> = entries[mid..].to_vec();
         let separator = right[0].key.clone();
 
-        let left_page_bytes = build_leaf_page(&left)?;
-        let right_page_bytes = build_leaf_page(&right)?;
+        let mut left_page = build_leaf_page(&left)?;
+        let mut right_page = build_leaf_page(&right)?;
 
         if leaf_page == ROOT_PAGE {
-            self.split_root(left_page_bytes, right_page_bytes, separator)
+            self.split_root(&mut left_page, &mut right_page, separator)
         } else {
-            self.pool.write_page(leaf_page, &left_page_bytes)?;
+            self.write_page_durable(leaf_page, &mut left_page)?;
             let new_page = self.pool.page_count();
-            self.pool.write_page(new_page, &right_page_bytes)?;
+            self.write_page_durable(new_page, &mut right_page)?;
             self.propagate(&path[..path.len() - 1], separator, new_page)
         }
     }
@@ -156,8 +201,8 @@ impl BTree {
         );
 
         match build_internal_page(&entries, header.leftmost_child) {
-            Ok(page) => {
-                self.pool.write_page(parent_page, &page)?;
+            Ok(mut page) => {
+                self.write_page_durable(parent_page, &mut page)?;
                 Ok(())
             }
             Err(IndexError::NodeFull) => {
@@ -166,7 +211,6 @@ impl BTree {
             Err(err) => Err(err),
         }
     }
-
     fn split_internal(
         &mut self,
         path: &[u32],
@@ -180,15 +224,15 @@ impl BTree {
         let left: Vec<InternalEntry> = entries[..mid].to_vec();
         let right: Vec<InternalEntry> = entries[mid + 1..].to_vec();
 
-        let left_page_bytes = build_internal_page(&left, leftmost_child)?;
-        let right_page_bytes = build_internal_page(&right, promoted.child_page)?;
+        let mut left_page = build_internal_page(&left, leftmost_child)?;
+        let mut right_page = build_internal_page(&right, promoted.child_page)?;
 
         if node_page == ROOT_PAGE {
-            self.split_root(left_page_bytes, right_page_bytes, promoted.key)
+            self.split_root(&mut left_page, &mut right_page, promoted.key)
         } else {
-            self.pool.write_page(node_page, &left_page_bytes)?;
+            self.write_page_durable(node_page, &mut left_page)?;
             let new_page = self.pool.page_count();
-            self.pool.write_page(new_page, &right_page_bytes)?;
+            self.write_page_durable(new_page, &mut right_page)?;
             self.propagate(&path[..path.len() - 1], promoted.key, new_page)
         }
     }
@@ -198,24 +242,24 @@ impl BTree {
     /// with a brand new internal root routing between them.
     fn split_root(
         &mut self,
-        left: crumble_buffer::Page,
-        right: crumble_buffer::Page,
+        left: &mut Page,
+        right: &mut Page,
         separator: IndexKey,
     ) -> Result<(), IndexError> {
         let left_page = self.pool.page_count();
-        self.pool.write_page(left_page, &left)?;
+        self.write_page_durable(left_page, left)?;
 
         let right_page = self.pool.page_count();
-        self.pool.write_page(right_page, &right)?;
+        self.write_page_durable(right_page, right)?;
 
-        let new_root = build_internal_page(
+        let mut new_root = build_internal_page(
             &[InternalEntry {
                 key: separator,
                 child_page: right_page,
             }],
             left_page,
         )?;
-        self.pool.write_page(ROOT_PAGE, &new_root)?;
+        self.write_page_durable(ROOT_PAGE, &mut new_root)?;
 
         Ok(())
     }
@@ -251,7 +295,7 @@ mod tests {
     #[test]
     fn search_on_empty_tree_returns_nothing() -> Result<(), IndexError> {
         let dir = tempfile::tempdir().unwrap();
-        let mut tree = BTree::open(dir.path().join("test.idx"))?;
+        let mut tree = BTree::open("test", dir.path())?;
 
         let results = tree.search(&IndexKey::Int(42))?;
         assert!(results.is_empty());
@@ -261,7 +305,7 @@ mod tests {
     #[test]
     fn insert_then_search_finds_it() -> Result<(), IndexError> {
         let dir = tempfile::tempdir().unwrap();
-        let mut tree = BTree::open(dir.path().join("test.idx"))?;
+        let mut tree = BTree::open("test", dir.path())?;
 
         tree.insert(IndexKey::Int(42), 3, 1)?;
         let results = tree.search(&IndexKey::Int(42))?;
@@ -273,7 +317,7 @@ mod tests {
     #[test]
     fn many_inserts_force_splits_and_all_remain_findable() -> Result<(), IndexError> {
         let dir = tempfile::tempdir().unwrap();
-        let mut tree = BTree::open(dir.path().join("test.idx"))?;
+        let mut tree = BTree::open("test", dir.path())?;
 
         for i in 0..500i64 {
             tree.insert(IndexKey::Int(i), i as u32, 0)?;

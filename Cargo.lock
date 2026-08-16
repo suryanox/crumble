@@ -90,6 +90,7 @@ version = "0.1.0"
 dependencies = [
  "bincode",
  "crumble-buffer",
+ "crumble-wal",
  "serde",
  "tempfile",
  "thiserror",
