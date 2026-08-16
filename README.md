@@ -4,33 +4,7 @@ Crumble is a database built from first principles in Rust.
 
 The goal is to understand how a database actually works by implementing its core components rather than treating the database as a black box.
 
-The project will gradually explore:
-
-* SQL parsing
-* Query planning
-* Query optimization
-* An LLVM-inspired intermediate representation (IR)
-* Query execution
-* Buffer pools
-* Storage engines
-* Write-ahead logging (WAL)
-* Transactions
-* MVCC
-* Indexes
-* Concurrency
-* Recovery
-* Benchmarking and performance
-
 The architecture is intentionally inspired by compiler design: SQL is transformed into an intermediate representation, optimized through passes, and eventually executed by the database engine.
-
-## Architecture
-
-The high-level architecture and evolution of the system are documented in:
-
-* [Architecture](docs/architecture/README.md)
-* [Design](docs/design/README.md)
-
-These documents will evolve alongside the implementation and capture the reasoning behind major architectural decisions.
 
 ## Why Crumble?
 
@@ -39,6 +13,73 @@ Crumble is primarily a **learning project**.
 The goal isn't to build the next PostgreSQL. The goal is to understand the engineering decisions, tradeoffs, algorithms, and abstractions that make databases work.
 
 Every subsystem will be built incrementally, measured, tested, and documented.
+
+## Architecture
+
+The high-level architecture and evolution of the system are documented in:
+
+* [Architecture](docs/architecture/README.md)
+* [Design](docs/design/README.md)
+* [Decisions & tradeoffs](docs/decisions/tradeoffs.md) — why things are built the way they are, kept up to date as I go
+* [Guide](docs/guide.md) — what a page/slot/page_index etc actually are, short version
+
+These documents will evolve alongside the implementation and capture the reasoning behind major architectural decisions.
+
+Documentation, specifications, research papers, books, and existing implementations may be used as references. The implementation itself should be **understood and written deliberately**.
+
+> **If I can't explain why the code exists, it doesn't belong in Crumble.**
+
+## Status
+
+🚧 work in progress. checked = built and tested, not just started.
+
+**parsing / IR**
+- [x] SQL parsing (via `sqlparser`, not hand-rolled — see tradeoffs.md)
+- [x] AST -> Logical IR lowering
+- [x] Logical IR -> Physical IR
+- [x] constant folding (optimizer pass)
+- [ ] predicate pushdown (needs joins first, currently a no-op)
+- [ ] cost-based optimization
+
+**storage**
+- [x] slotted page format (disk-backed, byte-exact)
+- [x] heap file storage (append-only)
+- [x] buffer pool (LRU, write-back)
+- [x] WAL + crash recovery (LSN-stamped pages, idempotent replay)
+- [x] tombstone deletes (no physical byte removal)
+- [ ] page compaction / space reclaim
+- [ ] typed schema (CREATE TABLE columns have no enforced type yet)
+
+**query execution**
+- [x] SELECT (seq scan, filter, project)
+- [x] INSERT
+- [x] UPDATE (delete + insert under the hood)
+- [x] DELETE
+- [x] CREATE TABLE
+- [ ] JOIN
+- [ ] subqueries
+- [ ] aggregates (COUNT/SUM/GROUP BY etc)
+
+**indexing**
+- [x] B+tree (leaf pages hold data, internal pages route only)
+- [x] CREATE INDEX + backfill on existing rows
+- [x] index kept in sync on INSERT/UPDATE/DELETE
+- [x] index has its own WAL (crash-safe, same pattern as table storage)
+- [x] optimizer rewrite: `WHERE col = literal` -> IndexScan when an index exists
+- [ ] range scans through the index (WHERE col > x) — currently only exact equality
+- [ ] clustered/index-organized storage (secondary index only right now, see tradeoffs.md)
+
+**transactions**
+- [ ] MVCC
+- [ ] isolation levels
+- [ ] concurrent access (everything so far assumes one statement at a time)
+
+**not started**
+- [ ] concurrency (single-threaded end to end right now)
+- [ ] benchmarking
+
+Crumble is being built incrementally. APIs, architecture, and implementation details will change as the project evolves and new database concepts are explored.
+
 
 ## Development Philosophy
 
@@ -57,15 +98,6 @@ The purpose of Crumble is to learn by:
 5. Studying what went wrong.
 6. Iterating on the design.
 
-Documentation, specifications, research papers, books, and existing implementations may be used as references. The implementation itself should be **understood and written deliberately**.
-
-> **If I can't explain why the code exists, it doesn't belong in Crumble.**
-
-## Status
-
-🚧 **Work in progress**
-
-Crumble is being built incrementally. APIs, architecture, and implementation details will change as the project evolves and new database concepts are explored.
 
 ## License
 
