@@ -74,7 +74,7 @@ impl Table {
         &self.columns
     }
 
-    pub fn insert(&mut self, row: Row) -> Result<(), StorageError> {
+    pub fn insert(&mut self, row: Row) -> Result<(u32, u16), StorageError> {
         if row.values().len() != self.columns.len() {
             return Err(StorageError::ColumnCountMismatch {
                 expected: self.columns.len(),
@@ -83,7 +83,7 @@ impl Table {
         }
 
         let bytes = row.to_bytes()?;
-        let (page_index, mut page) = self.prepare_insert(&bytes)?;
+        let (page_index, slot, mut page) = self.prepare_insert(&bytes)?;
 
         let lsn = self.wal.append(&WalRecord::Insert {
             table: self.name.clone(),
@@ -92,32 +92,29 @@ impl Table {
         })?;
 
         page.set_page_lsn(lsn);
-        Ok(self.pool.write_page(page_index, &page)?)
+        self.pool.write_page(page_index, &page)?;
+        Ok((page_index, slot))
     }
 
     /// Decides which page a new row belongs on, and returns that page
     /// with the row already inserted into it — NOT yet written to the pool.
     /// Logging happens against this decision before it's committed.
-    fn prepare_insert(
-        &mut self,
-        bytes: &[u8],
-    ) -> Result<(u32, crumble_buffer::Page), StorageError> {
+
+    fn prepare_insert(&mut self, bytes: &[u8]) -> Result<(u32, u16, crumble_buffer::Page), StorageError> {
         let page_count = self.pool.page_count();
 
         if page_count > 0 {
             let last_index = page_count - 1;
             let mut page = self.pool.fetch_page(last_index)?;
 
-            if page.insert_row(bytes).is_some() {
-                return Ok((last_index, page));
+            if let Some(slot) = page.insert_row(bytes) {
+                return Ok((last_index, slot, page));
             }
         }
 
         let mut page = crumble_buffer::Page::new();
-        if page.insert_row(bytes).is_none() {
-            return Err(StorageError::RowTooLarge);
-        }
-        Ok((page_count, page))
+        let slot = page.insert_row(bytes).ok_or(StorageError::RowTooLarge)?;
+        Ok((page_count, slot, page))
     }
 
     /// Inserts bytes at an EXACT, already-decided page index used by WAL
