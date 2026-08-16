@@ -123,6 +123,7 @@ fn main() -> ExitCode {
         let physical = to_physical(optimized);
         let physical = plan_index_scans(physical, &catalog);
 
+        eprintln!("{:?}", physical);
         match execute(&physical, &mut catalog) {
             Ok(result) => print_table(result.columns(), result.rows()),
             Err(err) => eprintln!("{RED}execution error:{RESET} {err}"),

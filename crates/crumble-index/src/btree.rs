@@ -263,6 +263,31 @@ impl BTree {
 
         Ok(())
     }
+
+    pub fn delete(
+        &mut self,
+        key: &IndexKey,
+        page_index: u32,
+        slot: u16,
+    ) -> Result<bool, IndexError> {
+        let path = self.path_to_leaf(key)?;
+
+        let leaf_page = *path.last().unwrap();
+
+        let mut entries = read_leaf_entries(&self.pool.fetch_page(leaf_page)?)?;
+
+        let before = entries.len();
+
+        entries.retain(|e| !(&e.key == key && e.page_index == page_index && e.slot == slot));
+
+        if entries.len() == before {
+            return Ok(false);
+        }
+
+        let mut page = build_leaf_page(&entries)?;
+        self.write_page_durable(leaf_page, &mut page)?;
+        Ok(true)
+    }
 }
 
 /// Standard B+tree internal-node routing: entries are sorted ascending.
