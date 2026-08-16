@@ -74,6 +74,8 @@ impl Table {
         &self.columns
     }
 
+    // Table = heap access method. Fully ignorant indexes exist. Just got its insert changed to return (page_index, slot)
+    // not because it cares about indexing, but because it's the only one who knows where a row landed, and someone downstream will need that.
     pub fn insert(&mut self, row: Row) -> Result<(u32, u16), StorageError> {
         if row.values().len() != self.columns.len() {
             return Err(StorageError::ColumnCountMismatch {
@@ -100,7 +102,10 @@ impl Table {
     /// with the row already inserted into it — NOT yet written to the pool.
     /// Logging happens against this decision before it's committed.
 
-    fn prepare_insert(&mut self, bytes: &[u8]) -> Result<(u32, u16, crumble_buffer::Page), StorageError> {
+    fn prepare_insert(
+        &mut self,
+        bytes: &[u8],
+    ) -> Result<(u32, u16, crumble_buffer::Page), StorageError> {
         let page_count = self.pool.page_count();
 
         if page_count > 0 {

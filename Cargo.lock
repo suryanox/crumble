@@ -76,6 +76,7 @@ dependencies = [
 name = "crumble-exec"
 version = "0.1.0"
 dependencies = [
+ "crumble-index",
  "crumble-ir",
  "crumble-sql",
  "crumble-storage",

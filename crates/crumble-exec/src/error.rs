@@ -1,3 +1,4 @@
+use crumble_index::IndexError;
 use crumble_storage::StorageError;
 use thiserror::Error;
 
@@ -14,4 +15,7 @@ pub enum ExecError {
 
     #[error("missing value for column: {0}")]
     MissingColumn(String),
+
+    #[error(transparent)]
+    Index(#[from] IndexError),
 }
