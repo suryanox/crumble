@@ -11,3 +11,4 @@ tempfile = "3.27.0"
 crumble-buffer = {path = "../crumble-buffer"}
 crumble-wal = {path = "../crumble-wal"}
 serde_json = "1.0.151"
+crumble-index = {path = "../crumble-index"}

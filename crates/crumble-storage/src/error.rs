@@ -1,4 +1,5 @@
 use crumble_buffer::BufferError;
+use crumble_index::IndexError;
 use crumble_wal::WalError;
 use thiserror::Error;
 
@@ -27,4 +28,7 @@ pub enum StorageError {
 
     #[error(transparent)]
     Wal(#[from] WalError),
+
+    #[error(transparent)]
+    Index(#[from] IndexError),
 }

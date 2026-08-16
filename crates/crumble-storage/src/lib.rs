@@ -1,5 +1,6 @@
 mod catalog;
 mod error;
+mod index_key;
 mod row;
 mod table;
 mod value;

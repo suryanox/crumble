@@ -43,6 +43,15 @@ fn fold_plan(plan: LogicalPlan) -> LogicalPlan {
             assignments,
             predicate: predicate.map(fold_expr),
         },
+        LogicalPlan::CreateIndex {
+            index_name,
+            table,
+            column,
+        } => LogicalPlan::CreateIndex {
+            index_name,
+            table,
+            column,
+        },
     }
 }
 

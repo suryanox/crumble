@@ -1,10 +1,13 @@
 mod create;
+mod create_index;
 mod delete;
 mod expr;
 mod insert;
 mod select;
 mod update;
+
 use crate::lower::create::lower_create;
+use crate::lower::create_index::lower_create_index;
 use crate::lower::delete::lower_delete;
 use crate::lower::insert::lower_insert;
 use crate::lower::select::lower_select_expr;
@@ -29,6 +32,7 @@ fn lower_statement(statement: &Statement) -> Result<LogicalPlan, LowerError> {
         Statement::CreateTable(create_table) => lower_create(create_table),
         Statement::Delete(delete) => lower_delete(delete),
         Statement::Update(update) => lower_update(update),
+        Statement::CreateIndex(create_index) => lower_create_index(create_index),
         other => Err(LowerError::Unsupported(format!("statement: {other:?}"))),
     }
 }

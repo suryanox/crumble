@@ -1,4 +1,4 @@
-use crate::interpret::create::create;
+use crate::interpret::create::{create, create_index};
 use crate::interpret::delete::delete;
 use crate::interpret::filter::filter;
 use crate::interpret::insert::insert;
@@ -36,6 +36,11 @@ pub fn execute(plan: &PhysicalPlan, catalog: &mut Catalog) -> Result<RowSet, Exe
             assignments,
             predicate,
         } => update(catalog, table, assignments, predicate),
+        PhysicalPlan::CreateIndex {
+            index_name,
+            table,
+            column,
+        } => create_index(catalog, index_name, table, column),
     }
 }
 

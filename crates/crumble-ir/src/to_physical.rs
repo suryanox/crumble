@@ -35,5 +35,14 @@ pub fn to_physical(plan: LogicalPlan) -> PhysicalPlan {
             assignments,
             predicate,
         },
+        LogicalPlan::CreateIndex {
+            index_name,
+            table,
+            column,
+        } => PhysicalPlan::CreateIndex {
+            index_name,
+            table,
+            column,
+        },
     }
 }

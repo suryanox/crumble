@@ -38,4 +38,9 @@ pub enum PhysicalPlan {
         assignments: Vec<(String, Literal)>,
         predicate: Option<Expr>,
     },
+    CreateIndex {
+        index_name: String,
+        table: String,
+        column: String,
+    },
 }

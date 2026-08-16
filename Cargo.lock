@@ -124,6 +124,7 @@ version = "0.1.0"
 dependencies = [
  "bincode",
  "crumble-buffer",
+ "crumble-index",
  "crumble-wal",
  "serde",
  "serde_json",

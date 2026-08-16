@@ -22,6 +22,7 @@ routing between them. No root-pointer bookkeeping needed, ever.
 */
 const ROOT_PAGE: u32 = 0;
 
+#[derive(Debug)]
 pub struct BTree {
     pool: BufferPool,
 }
