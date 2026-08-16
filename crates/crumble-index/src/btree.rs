@@ -334,4 +334,31 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn recovers_after_simulated_crash() -> Result<(), IndexError> {
+        let dir = tempfile::tempdir().unwrap();
+
+        {
+            let mut tree = BTree::open("test", dir.path())?;
+            for i in 0..500i64 {
+                tree.insert(IndexKey::Int(i), i as u32, 0)?;
+            }
+            // tree dropped here with no explicit flush — simulating a crash
+            // right after these inserts returned. Durable only via the WAL.
+        }
+
+        let mut recovered = BTree::open("test", dir.path())?;
+
+        for i in 0..500i64 {
+            let results = recovered.search(&IndexKey::Int(i))?;
+            assert_eq!(
+                results,
+                vec![(i as u32, 0)],
+                "key {i} lost after simulated crash"
+            );
+        }
+
+        Ok(())
+    }
 }
