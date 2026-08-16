@@ -60,6 +60,7 @@ dependencies = [
  "crumble-exec",
  "crumble-ir",
  "crumble-opt",
+ "crumble-planner",
  "crumble-sql",
  "crumble-storage",
 ]
@@ -110,6 +111,14 @@ name = "crumble-opt"
 version = "0.1.0"
 dependencies = [
  "crumble-ir",
+]
+
+[[package]]
+name = "crumble-planner"
+version = "0.1.0"
+dependencies = [
+ "crumble-ir",
+ "crumble-storage",
 ]
 
 [[package]]

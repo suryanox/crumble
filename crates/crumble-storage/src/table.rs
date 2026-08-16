@@ -195,6 +195,18 @@ impl Table {
         page.set_page_lsn(lsn);
         Ok(self.pool.write_page(page_index, &page)?)
     }
+
+    pub fn row_at(&mut self, page_index: u32, slot: u16) -> Result<Option<Row>, StorageError> {
+        if page_index >= self.pool.page_count() {
+            return Ok(None);
+        }
+
+        let page = self.pool.fetch_page(page_index)?;
+        match page.get_row(slot) {
+            Some(bytes) => Ok(Some(Row::from_bytes(bytes)?)),
+            None => Ok(None),
+        }
+    }
 }
 
 #[cfg(test)]

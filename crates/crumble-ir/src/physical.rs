@@ -43,4 +43,9 @@ pub enum PhysicalPlan {
         table: String,
         column: String,
     },
+    IndexScan {
+        table: String,
+        index_name: String,
+        key: Literal,
+    },
 }

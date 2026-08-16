@@ -13,6 +13,7 @@
       <sourceFolder url="file://$MODULE_DIR$/crates/crumble-tx/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/crumble-wal/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/crumble/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/crumble-planner/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

@@ -1,6 +1,7 @@
 use crate::interpret::create::{create, create_index};
 use crate::interpret::delete::delete;
 use crate::interpret::filter::filter;
+use crate::interpret::indexscan::indexscan;
 use crate::interpret::insert::insert;
 use crate::interpret::project::project;
 use crate::interpret::seqscan::seqscan;
@@ -17,8 +18,10 @@ mod seqscan;
 
 mod create;
 mod delete;
+mod indexscan;
 mod insert;
 mod update;
+
 pub fn execute(plan: &PhysicalPlan, catalog: &mut Catalog) -> Result<RowSet, ExecError> {
     match plan {
         PhysicalPlan::SeqScan { table } => seqscan(catalog, table),
@@ -41,6 +44,11 @@ pub fn execute(plan: &PhysicalPlan, catalog: &mut Catalog) -> Result<RowSet, Exe
             table,
             column,
         } => create_index(catalog, index_name, table, column),
+        PhysicalPlan::IndexScan {
+            table,
+            index_name,
+            key,
+        } => indexscan(catalog, table, index_name, key),
     }
 }
 

@@ -5,6 +5,7 @@ use std::process::ExitCode;
 use crumble_exec::execute;
 use crumble_ir::{lower, to_physical};
 use crumble_opt::{ConstantFold, OptimizationPass};
+use crumble_planner::plan_index_scans;
 use crumble_sql::parse;
 use crumble_storage::{Catalog, Row, StorageError};
 
@@ -120,6 +121,7 @@ fn main() -> ExitCode {
 
         let optimized = ConstantFold.apply(logical);
         let physical = to_physical(optimized);
+        let physical = plan_index_scans(physical, &catalog);
 
         match execute(&physical, &mut catalog) {
             Ok(result) => print_table(result.columns(), result.rows()),
