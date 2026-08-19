@@ -10,6 +10,9 @@ pub struct NodeHeader {
     /// Only meaningful when is_leaf == false: the child page for every
     /// key less than the first entry's key.
     pub leftmost_child: u32,
+    /// Only meaningful when is_leaf == true: the next leaf in key order,
+    /// or None if this is the rightmost leaf.
+    pub next_leaf: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -42,18 +45,12 @@ fn write_slot<T: Serialize>(page: &mut Page, value: &T) -> Result<(), IndexError
     Ok(())
 }
 
-pub fn build_leaf_page(entries: &[LeafEntry]) -> Result<Page, IndexError> {
+pub fn build_leaf_page(entries: &[LeafEntry], next_leaf: Option<u32>) -> Result<Page, IndexError> {
     let mut page = Page::new();
-    write_slot(
-        &mut page,
-        &NodeHeader {
-            is_leaf: true,
-            leftmost_child: 0,
-        },
-    )?;
+    write_slot(&mut page, &NodeHeader { is_leaf: true, leftmost_child: 0, next_leaf })?;
 
     for entry in entries {
-        write_slot(&mut page, &entry)?;
+        write_slot(&mut page, entry)?;
     }
 
     Ok(page)
@@ -64,14 +61,8 @@ pub fn build_internal_page(
     leftmost_child: u32,
 ) -> Result<Page, IndexError> {
     let mut page = Page::new();
-
-    write_slot(
-        &mut page,
-        &NodeHeader {
-            is_leaf: false,
-            leftmost_child,
-        },
-    )?;
+    // next_leaf is always None for internal nodes — meaningless outside leaves.
+    write_slot(&mut page, &NodeHeader { is_leaf: false, leftmost_child, next_leaf: None })?;
 
     for entry in entries {
         write_slot(&mut page, &entry)?;

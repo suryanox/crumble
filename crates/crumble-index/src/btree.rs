@@ -43,11 +43,7 @@ impl BTree {
         let mut tree = Self { pool, wal };
 
         for (lsn, record) in read_all(&wal_path)? {
-            let WalRecord::WritePage {
-                page_index,
-                page_data: page_bytes,
-            } = record
-            else {
+            let WalRecord::WritePage { page_index, page_bytes } = record else {
                 continue;
             };
 
@@ -63,22 +59,17 @@ impl BTree {
         }
 
         if tree.pool.page_count() == 0 {
-            let mut page = build_leaf_page(&[])?;
+            let mut page = build_leaf_page(&[], None)?;
             tree.write_page_durable(ROOT_PAGE, &mut page)?;
         }
 
         Ok(tree)
     }
 
-    /// Every real, committed page write goes through here: log the complete
-    /// new page bytes (fsync, wait for it), stamp the resulting LSN into the
-    /// page itself, then write it to the buffer pool. Same discipline as
-    /// crumble-storage::Table, applied to whole-page writes instead of
-    /// single-row inserts.
     fn write_page_durable(&mut self, page_index: u32, page: &mut Page) -> Result<(), IndexError> {
         let lsn = self.wal.append(&WalRecord::WritePage {
             page_index,
-            page_data: page.as_bytes().to_vec(),
+            page_bytes: page.as_bytes().to_vec(),
         })?;
 
         page.set_page_lsn(lsn);
@@ -87,23 +78,72 @@ impl BTree {
     }
 
     pub fn search(&mut self, key: &IndexKey) -> Result<Vec<(u32, u16)>, IndexError> {
-        let mut current = ROOT_PAGE;
+        let leaf_page = self.find_leaf(key)?;
+        let page = self.pool.fetch_page(leaf_page)?;
+        let entries = read_leaf_entries(&page)?;
+
+        Ok(entries
+            .into_iter()
+            .filter(|entry| &entry.key == key)
+            .map(|entry| (entry.page_index, entry.slot))
+            .collect())
+    }
+
+    /// Each bound is (key, inclusive). None means unbounded on that side.
+    pub fn range_search(
+        &mut self,
+        lower: Option<(&IndexKey, bool)>,
+        upper: Option<(&IndexKey, bool)>,
+    ) -> Result<Vec<(u32, u16)>, IndexError> {
+        let mut current = match lower {
+            Some((key, _)) => self.find_leaf(key)?,
+            None => self.leftmost_leaf()?,
+        };
+
+        let mut results = Vec::new();
 
         loop {
             let page = self.pool.fetch_page(current)?;
             let header = read_header(&page)?;
+            let entries = read_leaf_entries(&page)?;
 
-            if header.is_leaf {
-                let entries = read_leaf_entries(&page)?;
-                return Ok(entries
-                    .into_iter()
-                    .filter(|entry| &entry.key == key)
-                    .map(|entry| (entry.page_index, entry.slot))
-                    .collect());
+            for entry in &entries {
+                if let Some((bound, inclusive)) = lower {
+                    let too_small = if inclusive { entry.key < *bound } else { entry.key <= *bound };
+                    if too_small {
+                        continue;
+                    }
+                }
+                if let Some((bound, inclusive)) = upper {
+                    let too_big = if inclusive { entry.key > *bound } else { entry.key >= *bound };
+                    if too_big {
+                        return Ok(results);
+                    }
+                }
+                results.push((entry.page_index, entry.slot));
             }
 
-            let entries = read_internal_entries(&page)?;
-            current = child_for_key(&entries, header.leftmost_child, key);
+            match header.next_leaf {
+                Some(next) => current = next,
+                None => return Ok(results),
+            }
+        }
+    }
+
+    fn find_leaf(&mut self, key: &IndexKey) -> Result<u32, IndexError> {
+        let path = self.path_to_leaf(key)?;
+        Ok(*path.last().unwrap())
+    }
+
+    fn leftmost_leaf(&mut self) -> Result<u32, IndexError> {
+        let mut current = ROOT_PAGE;
+        loop {
+            let page = self.pool.fetch_page(current)?;
+            let header = read_header(&page)?;
+            if header.is_leaf {
+                return Ok(current);
+            }
+            current = header.leftmost_child;
         }
     }
 
@@ -111,28 +151,37 @@ impl BTree {
         let path = self.path_to_leaf(&key)?;
         let leaf_page = *path.last().expect("path always has at least the root");
 
-        let mut entries = read_leaf_entries(&self.pool.fetch_page(leaf_page)?)?;
-        let insert_at = entries
-            .iter()
-            .position(|e| e.key > key)
-            .unwrap_or(entries.len());
-        entries.insert(
-            insert_at,
-            LeafEntry {
-                key,
-                page_index,
-                slot,
-            },
-        );
+        let leaf = self.pool.fetch_page(leaf_page)?;
+        let next_leaf = read_header(&leaf)?.next_leaf;
+        let mut entries = read_leaf_entries(&leaf)?;
+        let insert_at = entries.iter().position(|e| e.key > key).unwrap_or(entries.len());
+        entries.insert(insert_at, LeafEntry { key, page_index, slot });
 
-        match build_leaf_page(&entries) {
+        match build_leaf_page(&entries, next_leaf) {
             Ok(mut page) => {
                 self.write_page_durable(leaf_page, &mut page)?;
                 Ok(())
             }
-            Err(IndexError::NodeFull) => self.split_leaf(&path, entries),
+            Err(IndexError::NodeFull) => self.split_leaf(&path, entries, next_leaf),
             Err(err) => Err(err),
         }
+    }
+
+    pub fn delete(&mut self, key: &IndexKey, page_index: u32, slot: u16) -> Result<bool, IndexError> {
+        let leaf_page = self.find_leaf(key)?;
+        let leaf = self.pool.fetch_page(leaf_page)?;
+        let next_leaf = read_header(&leaf)?.next_leaf;
+        let mut entries = read_leaf_entries(&leaf)?;
+
+        let before = entries.len();
+        entries.retain(|e| !(&e.key == key && e.page_index == page_index && e.slot == slot));
+        if entries.len() == before {
+            return Ok(false);
+        }
+
+        let mut page = build_leaf_page(&entries, next_leaf)?;
+        self.write_page_durable(leaf_page, &mut page)?;
+        Ok(true)
     }
 
     fn path_to_leaf(&mut self, key: &IndexKey) -> Result<Vec<u32>, IndexError> {
@@ -153,64 +202,63 @@ impl BTree {
         }
     }
 
-    fn split_leaf(&mut self, path: &[u32], entries: Vec<LeafEntry>) -> Result<(), IndexError> {
+    fn split_leaf(
+        &mut self,
+        path: &[u32],
+        entries: Vec<LeafEntry>,
+        old_next: Option<u32>,
+    ) -> Result<(), IndexError> {
         let leaf_page = *path.last().unwrap();
         let mid = entries.len() / 2;
-        let left: Vec<LeafEntry> = entries[..mid].to_vec();
-        let right: Vec<LeafEntry> = entries[mid..].to_vec();
-        let separator = right[0].key.clone();
-
-        let mut left_page = build_leaf_page(&left)?;
-        let mut right_page = build_leaf_page(&right)?;
+        let left_entries: Vec<LeafEntry> = entries[..mid].to_vec();
+        let right_entries: Vec<LeafEntry> = entries[mid..].to_vec();
+        let separator = right_entries[0].key.clone();
 
         if leaf_page == ROOT_PAGE {
-            self.split_root(&mut left_page, &mut right_page, separator)
+            // both halves relocate to fresh pages; page 0 becomes an internal root
+            let left_index = self.pool.page_count();
+            let right_index = left_index + 1;
+
+            let mut left_page = build_leaf_page(&left_entries, Some(right_index))?;
+            let mut right_page = build_leaf_page(&right_entries, old_next)?;
+
+            self.write_page_durable(left_index, &mut left_page)?;
+            self.write_page_durable(right_index, &mut right_page)?;
+
+            self.write_new_root(left_index, right_index, separator)
         } else {
+            // left stays put, right takes the next free page
+            let right_index = self.pool.page_count();
+
+            let mut left_page = build_leaf_page(&left_entries, Some(right_index))?;
+            let mut right_page = build_leaf_page(&right_entries, old_next)?;
+
             self.write_page_durable(leaf_page, &mut left_page)?;
-            let new_page = self.pool.page_count();
-            self.write_page_durable(new_page, &mut right_page)?;
-            self.propagate(&path[..path.len() - 1], separator, new_page)
+            self.write_page_durable(right_index, &mut right_page)?;
+
+            self.propagate(&path[..path.len() - 1], separator, right_index)
         }
     }
 
-    /// Inserts a new routing entry into an ancestor internal node, splitting
-    /// (recursively, up to and including the root) if it doesn't fit.
-    fn propagate(
-        &mut self,
-        ancestor_path: &[u32],
-        key: IndexKey,
-        new_child: u32,
-    ) -> Result<(), IndexError> {
-        let parent_page = *ancestor_path
-            .last()
-            .expect("propagate called with no parent");
+    fn propagate(&mut self, ancestor_path: &[u32], key: IndexKey, new_child: u32) -> Result<(), IndexError> {
+        let parent_page = *ancestor_path.last().expect("propagate called with no parent");
         let parent = self.pool.fetch_page(parent_page)?;
         let header = read_header(&parent)?;
         let mut entries = read_internal_entries(&parent)?;
 
-        let insert_at = entries
-            .iter()
-            .position(|e| e.key > key)
-            .unwrap_or(entries.len());
-        entries.insert(
-            insert_at,
-            InternalEntry {
-                key,
-                child_page: new_child,
-            },
-        );
+        let insert_at = entries.iter().position(|e| e.key > key).unwrap_or(entries.len());
+        entries.insert(insert_at, InternalEntry { key, child_page: new_child });
 
         match build_internal_page(&entries, header.leftmost_child) {
             Ok(mut page) => {
                 self.write_page_durable(parent_page, &mut page)?;
                 Ok(())
             }
-            Err(IndexError::NodeFull) => {
-                self.split_internal(ancestor_path, entries, header.leftmost_child)
-            }
+            Err(IndexError::NodeFull) => self.split_internal(ancestor_path, entries, header.leftmost_child),
             Err(err) => Err(err),
         }
     }
+
     fn split_internal(
         &mut self,
         path: &[u32],
@@ -221,74 +269,45 @@ impl BTree {
         let mid = entries.len() / 2;
         let promoted = entries[mid].clone();
 
-        let left: Vec<InternalEntry> = entries[..mid].to_vec();
-        let right: Vec<InternalEntry> = entries[mid + 1..].to_vec();
-
-        let mut left_page = build_internal_page(&left, leftmost_child)?;
-        let mut right_page = build_internal_page(&right, promoted.child_page)?;
+        let left_entries: Vec<InternalEntry> = entries[..mid].to_vec();
+        let right_entries: Vec<InternalEntry> = entries[mid + 1..].to_vec();
 
         if node_page == ROOT_PAGE {
-            self.split_root(&mut left_page, &mut right_page, promoted.key)
+            let left_index = self.pool.page_count();
+            let right_index = left_index + 1;
+
+            let mut left_page = build_internal_page(&left_entries, leftmost_child)?;
+            let mut right_page = build_internal_page(&right_entries, promoted.child_page)?;
+
+            self.write_page_durable(left_index, &mut left_page)?;
+            self.write_page_durable(right_index, &mut right_page)?;
+
+            self.write_new_root(left_index, right_index, promoted.key)
         } else {
+            let right_index = self.pool.page_count();
+
+            let mut left_page = build_internal_page(&left_entries, leftmost_child)?;
+            let mut right_page = build_internal_page(&right_entries, promoted.child_page)?;
+
             self.write_page_durable(node_page, &mut left_page)?;
-            let new_page = self.pool.page_count();
-            self.write_page_durable(new_page, &mut right_page)?;
-            self.propagate(&path[..path.len() - 1], promoted.key, new_page)
+            self.write_page_durable(right_index, &mut right_page)?;
+
+            self.propagate(&path[..path.len() - 1], promoted.key, right_index)
         }
     }
 
-    /// The root never moves. Its current contents (already split into left/
-    /// right) get relocated to two fresh pages, and page 0 is overwritten
-    /// with a brand new internal root routing between them.
-    fn split_root(
-        &mut self,
-        left: &mut Page,
-        right: &mut Page,
-        separator: IndexKey,
-    ) -> Result<(), IndexError> {
-        let left_page = self.pool.page_count();
-        self.write_page_durable(left_page, left)?;
-
-        let right_page = self.pool.page_count();
-        self.write_page_durable(right_page, right)?;
-
-        let mut new_root = build_internal_page(
-            &[InternalEntry {
-                key: separator,
-                child_page: right_page,
-            }],
-            left_page,
-        )?;
+    /// Overwrites page 0 with a fresh internal root routing between two
+    /// already-written child pages. Shared by leaf-splits and internal-splits
+    /// of the root — next_leaf wiring (if any) is already baked into the
+    /// child pages by the caller before this runs.
+    fn write_new_root(&mut self, left: u32, right: u32, separator: IndexKey) -> Result<(), IndexError> {
+        let mut new_root =
+            build_internal_page(&[InternalEntry { key: separator, child_page: right }], left)?;
         self.write_page_durable(ROOT_PAGE, &mut new_root)?;
-
         Ok(())
     }
-
-    pub fn delete(
-        &mut self,
-        key: &IndexKey,
-        page_index: u32,
-        slot: u16,
-    ) -> Result<bool, IndexError> {
-        let path = self.path_to_leaf(key)?;
-
-        let leaf_page = *path.last().unwrap();
-
-        let mut entries = read_leaf_entries(&self.pool.fetch_page(leaf_page)?)?;
-
-        let before = entries.len();
-
-        entries.retain(|e| !(&e.key == key && e.page_index == page_index && e.slot == slot));
-
-        if entries.len() == before {
-            return Ok(false);
-        }
-
-        let mut page = build_leaf_page(&entries)?;
-        self.write_page_durable(leaf_page, &mut page)?;
-        Ok(true)
-    }
 }
+
 
 /// Standard B+tree internal-node routing: entries are sorted ascending.
 /// `leftmost_child` covers everything below entries[0].key. Each entry's

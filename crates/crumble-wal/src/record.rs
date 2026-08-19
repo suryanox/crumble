@@ -20,6 +20,6 @@ pub enum WalRecord {
         Insert if Table ever moves to whole-page rewrites too. Not doing that now
         */
         page_index: u32,
-        page_data: Vec<u8>,
+        page_bytes: Vec<u8>,
     },
 }
