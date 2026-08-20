@@ -47,7 +47,14 @@ fn write_slot<T: Serialize>(page: &mut Page, value: &T) -> Result<(), IndexError
 
 pub fn build_leaf_page(entries: &[LeafEntry], next_leaf: Option<u32>) -> Result<Page, IndexError> {
     let mut page = Page::new();
-    write_slot(&mut page, &NodeHeader { is_leaf: true, leftmost_child: 0, next_leaf })?;
+    write_slot(
+        &mut page,
+        &NodeHeader {
+            is_leaf: true,
+            leftmost_child: 0,
+            next_leaf,
+        },
+    )?;
 
     for entry in entries {
         write_slot(&mut page, entry)?;
@@ -62,7 +69,14 @@ pub fn build_internal_page(
 ) -> Result<Page, IndexError> {
     let mut page = Page::new();
     // next_leaf is always None for internal nodes — meaningless outside leaves.
-    write_slot(&mut page, &NodeHeader { is_leaf: false, leftmost_child, next_leaf: None })?;
+    write_slot(
+        &mut page,
+        &NodeHeader {
+            is_leaf: false,
+            leftmost_child,
+            next_leaf: None,
+        },
+    )?;
 
     for entry in entries {
         write_slot(&mut page, &entry)?;

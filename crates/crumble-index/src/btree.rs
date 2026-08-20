@@ -43,7 +43,11 @@ impl BTree {
         let mut tree = Self { pool, wal };
 
         for (lsn, record) in read_all(&wal_path)? {
-            let WalRecord::WritePage { page_index, page_bytes } = record else {
+            let WalRecord::WritePage {
+                page_index,
+                page_bytes,
+            } = record
+            else {
                 continue;
             };
 
@@ -109,13 +113,21 @@ impl BTree {
 
             for entry in &entries {
                 if let Some((bound, inclusive)) = lower {
-                    let too_small = if inclusive { entry.key < *bound } else { entry.key <= *bound };
+                    let too_small = if inclusive {
+                        entry.key < *bound
+                    } else {
+                        entry.key <= *bound
+                    };
                     if too_small {
                         continue;
                     }
                 }
                 if let Some((bound, inclusive)) = upper {
-                    let too_big = if inclusive { entry.key > *bound } else { entry.key >= *bound };
+                    let too_big = if inclusive {
+                        entry.key > *bound
+                    } else {
+                        entry.key >= *bound
+                    };
                     if too_big {
                         return Ok(results);
                     }
@@ -154,8 +166,18 @@ impl BTree {
         let leaf = self.pool.fetch_page(leaf_page)?;
         let next_leaf = read_header(&leaf)?.next_leaf;
         let mut entries = read_leaf_entries(&leaf)?;
-        let insert_at = entries.iter().position(|e| e.key > key).unwrap_or(entries.len());
-        entries.insert(insert_at, LeafEntry { key, page_index, slot });
+        let insert_at = entries
+            .iter()
+            .position(|e| e.key > key)
+            .unwrap_or(entries.len());
+        entries.insert(
+            insert_at,
+            LeafEntry {
+                key,
+                page_index,
+                slot,
+            },
+        );
 
         match build_leaf_page(&entries, next_leaf) {
             Ok(mut page) => {
@@ -167,7 +189,12 @@ impl BTree {
         }
     }
 
-    pub fn delete(&mut self, key: &IndexKey, page_index: u32, slot: u16) -> Result<bool, IndexError> {
+    pub fn delete(
+        &mut self,
+        key: &IndexKey,
+        page_index: u32,
+        slot: u16,
+    ) -> Result<bool, IndexError> {
         let leaf_page = self.find_leaf(key)?;
         let leaf = self.pool.fetch_page(leaf_page)?;
         let next_leaf = read_header(&leaf)?.next_leaf;
@@ -240,21 +267,39 @@ impl BTree {
         }
     }
 
-    fn propagate(&mut self, ancestor_path: &[u32], key: IndexKey, new_child: u32) -> Result<(), IndexError> {
-        let parent_page = *ancestor_path.last().expect("propagate called with no parent");
+    fn propagate(
+        &mut self,
+        ancestor_path: &[u32],
+        key: IndexKey,
+        new_child: u32,
+    ) -> Result<(), IndexError> {
+        let parent_page = *ancestor_path
+            .last()
+            .expect("propagate called with no parent");
         let parent = self.pool.fetch_page(parent_page)?;
         let header = read_header(&parent)?;
         let mut entries = read_internal_entries(&parent)?;
 
-        let insert_at = entries.iter().position(|e| e.key > key).unwrap_or(entries.len());
-        entries.insert(insert_at, InternalEntry { key, child_page: new_child });
+        let insert_at = entries
+            .iter()
+            .position(|e| e.key > key)
+            .unwrap_or(entries.len());
+        entries.insert(
+            insert_at,
+            InternalEntry {
+                key,
+                child_page: new_child,
+            },
+        );
 
         match build_internal_page(&entries, header.leftmost_child) {
             Ok(mut page) => {
                 self.write_page_durable(parent_page, &mut page)?;
                 Ok(())
             }
-            Err(IndexError::NodeFull) => self.split_internal(ancestor_path, entries, header.leftmost_child),
+            Err(IndexError::NodeFull) => {
+                self.split_internal(ancestor_path, entries, header.leftmost_child)
+            }
             Err(err) => Err(err),
         }
     }
@@ -300,14 +345,23 @@ impl BTree {
     /// already-written child pages. Shared by leaf-splits and internal-splits
     /// of the root — next_leaf wiring (if any) is already baked into the
     /// child pages by the caller before this runs.
-    fn write_new_root(&mut self, left: u32, right: u32, separator: IndexKey) -> Result<(), IndexError> {
-        let mut new_root =
-            build_internal_page(&[InternalEntry { key: separator, child_page: right }], left)?;
+    fn write_new_root(
+        &mut self,
+        left: u32,
+        right: u32,
+        separator: IndexKey,
+    ) -> Result<(), IndexError> {
+        let mut new_root = build_internal_page(
+            &[InternalEntry {
+                key: separator,
+                child_page: right,
+            }],
+            left,
+        )?;
         self.write_page_durable(ROOT_PAGE, &mut new_root)?;
         Ok(())
     }
 }
-
 
 /// Standard B+tree internal-node routing: entries are sorted ascending.
 /// `leftmost_child` covers everything below entries[0].key. Each entry's
@@ -403,6 +457,68 @@ mod tests {
             );
         }
 
+        Ok(())
+    }
+
+    #[test]
+    fn range_search_returns_only_keys_in_bounds() -> Result<(), IndexError> {
+        let dir = tempfile::tempdir().unwrap();
+        let mut tree = BTree::open("test", dir.path())?;
+
+        for i in 0..500i64 {
+            tree.insert(IndexKey::Int(i), i as u32, 0)?;
+        }
+
+        let lower = IndexKey::Int(100);
+        let upper = IndexKey::Int(110);
+        let results = tree.range_search(Some((&lower, true)), Some((&upper, false)))?;
+
+        let mut keys: Vec<u32> = results.iter().map(|(p, _)| *p).collect();
+        keys.sort();
+
+        assert_eq!(
+            keys,
+            (100..110).collect::<Vec<u32>>(),
+            "expected [100, 110) inclusive-lower/exclusive-upper"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn range_search_unbounded_lower() -> Result<(), IndexError> {
+        let dir = tempfile::tempdir().unwrap();
+        let mut tree = BTree::open("test", dir.path())?;
+
+        for i in 0..50i64 {
+            tree.insert(IndexKey::Int(i), i as u32, 0)?;
+        }
+
+        let upper = IndexKey::Int(5);
+        let results = tree.range_search(None, Some((&upper, true)))?;
+
+        let mut keys: Vec<u32> = results.iter().map(|(p, _)| *p).collect();
+        keys.sort();
+
+        assert_eq!(keys, vec![0, 1, 2, 3, 4, 5]);
+        Ok(())
+    }
+
+    #[test]
+    fn range_search_unbounded_upper_crosses_multiple_leaves() -> Result<(), IndexError> {
+        let dir = tempfile::tempdir().unwrap();
+        let mut tree = BTree::open("test", dir.path())?;
+
+        for i in 0..500i64 {
+            tree.insert(IndexKey::Int(i), i as u32, 0)?;
+        }
+
+        let lower = IndexKey::Int(490);
+        let results = tree.range_search(Some((&lower, true)), None)?;
+
+        let mut keys: Vec<u32> = results.iter().map(|(p, _)| *p).collect();
+        keys.sort();
+
+        assert_eq!(keys, (490..500).collect::<Vec<u32>>());
         Ok(())
     }
 }
