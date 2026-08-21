@@ -1,7 +1,7 @@
 use crate::interpret::create::{create, create_index};
 use crate::interpret::delete::delete;
 use crate::interpret::filter::filter;
-use crate::interpret::indexscan::indexscan;
+use crate::interpret::indexscan::{indexscan, rangeindexscan};
 use crate::interpret::insert::insert;
 use crate::interpret::project::project;
 use crate::interpret::seqscan::seqscan;
@@ -49,6 +49,12 @@ pub fn execute(plan: &PhysicalPlan, catalog: &mut Catalog) -> Result<RowSet, Exe
             index_name,
             key,
         } => indexscan(catalog, table, index_name, key),
+        PhysicalPlan::RangeIndexScan {
+            table,
+            index_name,
+            lower,
+            upper,
+        } => rangeindexscan(catalog, table, index_name, lower, upper),
     }
 }
 

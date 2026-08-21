@@ -48,4 +48,10 @@ pub enum PhysicalPlan {
         index_name: String,
         key: Literal,
     },
+    RangeIndexScan {
+        table: String,
+        index_name: String,
+        lower: Option<(Literal, bool)>,
+        upper: Option<(Literal, bool)>,
+    },
 }
