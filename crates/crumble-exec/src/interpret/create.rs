@@ -16,6 +16,7 @@ pub(super) fn create(
                 crumble_ir::ColumnType::Int => StorageColumnType::Int,
                 crumble_ir::ColumnType::Bool => StorageColumnType::Bool,
                 crumble_ir::ColumnType::Text => StorageColumnType::String,
+                crumble_ir::ColumnType::Float => StorageColumnType::Float,
             },
         })
         .collect();

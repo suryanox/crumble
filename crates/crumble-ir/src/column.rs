@@ -3,6 +3,7 @@ pub enum ColumnType {
     Int,
     Bool,
     Text,
+    Float,
 }
 
 #[derive(Debug, Clone, PartialEq)]

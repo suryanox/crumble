@@ -25,6 +25,7 @@ fn lower_column_type(data_type: &DataType) -> Result<ColumnType, LowerError> {
         DataType::Int(_) | DataType::Integer(_) | DataType::BigInt(_) => Ok(ColumnType::Int),
         DataType::Bool | DataType::Boolean => Ok(ColumnType::Bool),
         DataType::Text | DataType::Varchar(_) | DataType::String(_) => Ok(ColumnType::Text),
+        DataType::Float(_) | DataType::Double(_) => Ok(ColumnType::Float),
         other => Err(LowerError::Unsupported(format!("column type: {other:?}"))),
     }
 }
