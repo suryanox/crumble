@@ -70,6 +70,10 @@ fn fold_expr(expr: Expr) -> Expr {
                 },
             }
         }
+        Expr::IsNull { expr, negated } => Expr::IsNull {
+            expr: Box::new(fold_expr(*expr)),
+            negated,
+        },
         other => other,
     }
 }

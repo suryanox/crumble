@@ -10,4 +10,5 @@ pub enum ColumnType {
 pub struct ColumnDef {
     pub name: String,
     pub typ: ColumnType,
+    pub nullable: bool,
 }

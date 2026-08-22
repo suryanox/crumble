@@ -16,6 +16,14 @@ pub(in crate::lower) fn lower_expr(expr: &SqlExpr) -> Result<Expr, LowerError> {
             op: lower_binary_operator(op)?,
             right: Box::new(lower_expr(right)?),
         }),
+        SqlExpr::IsNull(inner) => Ok(Expr::IsNull {
+            expr: Box::new(lower_expr(inner)?),
+            negated: false,
+        }),
+        SqlExpr::IsNotNull(inner) => Ok(Expr::IsNull {
+            expr: Box::new(lower_expr(inner)?),
+            negated: true,
+        }),
         other => Err(LowerError::Unsupported(format!("expression: {other:?}"))),
     }
 }
@@ -34,6 +42,7 @@ pub(in crate::lower) fn lower_value(value: &SqlValue) -> Result<Literal, LowerEr
         }
         SqlValue::Boolean(b) => Ok(Literal::Bool(*b)),
         SqlValue::SingleQuotedString(s) => Ok(Literal::String(s.clone())),
+        SqlValue::Null => Ok(Literal::Null),
         other => Err(LowerError::Unsupported(format!("literal: {other:?}"))),
     }
 }

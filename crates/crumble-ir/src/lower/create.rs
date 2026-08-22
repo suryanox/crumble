@@ -10,9 +10,14 @@ pub(super) fn lower_create(create_table: &CreateTable) -> Result<LogicalPlan, Lo
         .iter()
         .map(|col| {
             let typ = lower_column_type(&col.data_type)?;
+            let nullable = !col
+                .options
+                .iter()
+                .any(|opt| matches!(opt.option, sqlparser::ast::ColumnOption::NotNull));
             Ok(ColumnDef {
                 name: col.name.value.clone(),
                 typ,
+                nullable,
             })
         })
         .collect::<Result<Vec<_>, LowerError>>()?;

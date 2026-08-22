@@ -15,7 +15,7 @@ pub(super) fn filter(
         let value = eval_expr(predicate, input.columns(), row)?;
         match value {
             Value::Bool(true) => kept.push(row.clone()),
-            Value::Bool(false) => {}
+            Value::Bool(false) | Value::Null => {}
             _ => return Err(ExecError::TypeMismatch),
         }
     }

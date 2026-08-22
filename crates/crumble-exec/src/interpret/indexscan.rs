@@ -69,6 +69,6 @@ fn literal_to_index_key(literal: &Literal) -> Option<crumble_index::IndexKey> {
     match literal {
         Literal::Int(n) => Some(crumble_index::IndexKey::Int(*n)),
         Literal::String(s) => Some(crumble_index::IndexKey::String(s.clone())),
-        Literal::Bool(_) | Literal::Float(_) => None,
+        Literal::Bool(_) | Literal::Float(_) | Literal::Null => None,
     }
 }

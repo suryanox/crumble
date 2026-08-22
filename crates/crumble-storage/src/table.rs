@@ -89,7 +89,7 @@ impl Table {
         }
 
         for (value, col) in row.values().iter().zip(self.columns.iter()) {
-            if !col.ty.matches(value) {
+            if !col.matches(value) {
                 return Err(StorageError::TypeMismatch {
                     column: col.name.clone(),
                     expected: format!("{:?}", col.ty),

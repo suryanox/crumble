@@ -21,6 +21,11 @@ pub(in crate::interpret) fn eval_expr(
             let right = eval_expr(right, columns, row)?;
             eval_binary_op(left, *op, right)
         }
+        Expr::IsNull { expr, negated } => {
+            let value = eval_expr(expr, columns, row)?;
+            let is_null = matches!(value, Value::Null);
+            Ok(Value::Bool(is_null != *negated))
+        }
     }
 }
 
@@ -30,6 +35,7 @@ pub(in crate::interpret) fn literal_to_value(literal: &Literal) -> Value {
         Literal::Bool(b) => Value::Bool(*b),
         Literal::String(s) => Value::String(s.clone()),
         Literal::Float(f) => Value::Float(*f),
+        Literal::Null => Value::Null,
     }
 }
 
@@ -38,12 +44,46 @@ pub(in crate::interpret) fn eval_binary_op(
     op: BinaryOperator,
     right: Value,
 ) -> Result<Value, ExecError> {
+    match (&left, &right) {
+        (Value::Null, _) | (_, Value::Null) => {
+            return eval_binary_op_with_null(left, op, right);
+        }
+        _ => {}
+    }
+
     match (left, right) {
         (Value::Int(l), Value::Int(r)) => eval_int(l, op, r),
         (Value::Bool(l), Value::Bool(r)) => eval_bool(l, op, r),
         (Value::String(l), Value::String(r)) => eval_string(&l, op, &r),
         (Value::Float(l), Value::Float(r)) => eval_float(l, op, r),
         _ => Err(ExecError::TypeMismatch),
+    }
+}
+
+fn eval_binary_op_with_null(
+    left: Value,
+    op: BinaryOperator,
+    right: Value,
+) -> Result<Value, ExecError> {
+    match op {
+        // three-valued AND: false short-circuits regardless of the null side
+        BinaryOperator::And => match (&left, &right) {
+            (Value::Bool(false), _) | (_, Value::Bool(false)) => Ok(Value::Bool(false)),
+            _ => Ok(Value::Null),
+        },
+        // three-valued OR: true short-circuits regardless of the null side
+        BinaryOperator::Or => match (&left, &right) {
+            (Value::Bool(true), _) | (_, Value::Bool(true)) => Ok(Value::Bool(true)),
+            _ => Ok(Value::Null),
+        },
+        // every other comparison against a null operand is unknown, full stop
+        BinaryOperator::Eq
+        | BinaryOperator::NotEq
+        | BinaryOperator::Lt
+        | BinaryOperator::LtEq
+        | BinaryOperator::Gt
+        | BinaryOperator::GtEq
+        | BinaryOperator::Add => Ok(Value::Null),
     }
 }
 

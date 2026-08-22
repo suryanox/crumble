@@ -12,6 +12,17 @@ pub enum ColumnType {
 pub struct ColumnDef {
     pub name: String,
     pub ty: ColumnType,
+    /// SQL default: nullable unless NOT NULL was declared.
+    pub nullable: bool,
+}
+
+impl ColumnDef {
+    pub fn matches(&self, value: &crate::value::Value) -> bool {
+        if matches!(value, crate::value::Value::Null) {
+            return self.nullable;
+        }
+        self.ty.matches(value)
+    }
 }
 
 impl ColumnType {
@@ -26,9 +37,11 @@ impl ColumnType {
     }
 }
 
+/// deliberately matches real SQL's default (nullable unless NOT NULL), not an arbitrary choice. Every existing test using col(...) keeps working unchanged.
 pub fn col(name: &str, ty: ColumnType) -> ColumnDef {
     ColumnDef {
         name: name.to_string(),
         ty,
+        nullable: true,
     }
 }

@@ -7,6 +7,10 @@ pub enum Expr {
         op: BinaryOperator,
         right: Box<Expr>,
     },
+    IsNull {
+        expr: Box<Expr>,
+        negated: bool,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -15,6 +19,7 @@ pub enum Literal {
     Bool(bool),
     String(String),
     Float(f64),
+    Null,
 }
 
 #[derive(Clone, Debug, PartialEq, Copy)]

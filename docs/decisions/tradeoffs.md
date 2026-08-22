@@ -194,3 +194,15 @@ didn't invent a new byte format. Page is already "container of variable-
 length byte blobs with slot indirection" which is exactly what a B+tree node
 needs. crumble-index depends on crumble-buffer only — NOT crumble-storage,
 same cycle-avoidance as the buffer pool split.
+
+## int/float width variants (SMALLINT, BIGINT, FLOAT4/8) — not doing this yet
+Value::Int is always i64, Value::Float always f64, regardless of what SQL
+declares. Real fixed-width support would mean new Value variants per width,
+which ripples through basically every crate (eval, ColumnType::matches, page
+encoding, IndexKey, WAL records) for a benefit (storage byte efficiency) that
+only matters once we're actually measuring storage size/perf at scale — not
+yet. Silently aliasing SMALLINT/BIGINT to the same i64 would be worse than
+not supporting them claims to respect a declared width while secretly
+ignoring it, exactly what typed-schema was built to prevent. NULL support is
+the more honestly urgent gap no column can be absent a value at all right
+now.

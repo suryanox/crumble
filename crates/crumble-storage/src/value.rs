@@ -12,6 +12,7 @@ pub enum Value {
     Bool(bool),
     String(String),
     Float(f64),
+    Null,
 }
 
 impl std::fmt::Display for Value {
@@ -21,6 +22,7 @@ impl std::fmt::Display for Value {
             Value::Bool(b) => write!(f, "{b}"),
             Value::String(s) => write!(f, "{s}"),
             Value::Float(flo) => write!(f, "{flo}"),
+            Value::Null => write!(f, "NULL"),
         }
     }
 }
