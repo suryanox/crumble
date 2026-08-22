@@ -17,8 +17,8 @@ pub(super) fn update(
     predicate: &Option<Expr>,
 ) -> Result<RowSet, ExecError> {
     let target = catalog.get_mut(table)?;
-    let columns = target.columns().to_vec();
     let located_rows = target.rows_with_location()?;
+    let columns: Vec<String> = target.columns().iter().map(|c| c.name.clone()).collect();
 
     // (old_page_index, old_slot, old_row, new_page_index, new_slot, new_row)
     let mut changed = Vec::new();

@@ -42,11 +42,24 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="cf7745a6-b7f4-4a18-97a1-bb78fb58a366" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/crates/crumble-ir/src/column.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/crates/crumble-storage/src/column.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/crumble-exec/src/interpret/create.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-exec/src/interpret/create.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/crumble-exec/src/interpret/delete.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-exec/src/interpret/delete.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/crumble-exec/src/interpret/indexscan.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-exec/src/interpret/indexscan.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/crumble-exec/src/interpret/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-exec/src/interpret/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/crumble-exec/src/interpret/insert.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-exec/src/interpret/insert.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/crumble-exec/src/interpret/seqscan.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-exec/src/interpret/seqscan.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/crumble-exec/src/interpret/update.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-exec/src/interpret/update.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/crumble-ir/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-ir/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/crumble-ir/src/lower/create.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-ir/src/lower/create.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/crumble-ir/src/lower/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-ir/src/lower/mod.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/crumble-ir/src/physical.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-ir/src/physical.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/crumble-planner/src/index_scan.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-planner/src/index_scan.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/crumble-ir/src/plan.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-ir/src/plan.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/crumble-storage/src/catalog.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-storage/src/catalog.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/crumble-storage/src/error.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-storage/src/error.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/crumble-storage/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-storage/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/crumble-storage/src/table.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-storage/src/table.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -71,60 +84,60 @@
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
       <entry key="MS100" value="1.0" />
-      <entry key="MS500" value="1.0" />
-      <entry key="S2" value="1.0000044208178187" />
-      <entry key="S5" value="1.010292369798522" />
-      <entry key="S10" value="1.1672156980448831" />
-      <entry key="S30" value="4.025497630975155" />
-      <entry key="S60" value="11.681201231558848" />
-      <entry key="M2" value="28.716188371321763" />
-      <entry key="M5" value="66.81070582612654" />
-      <entry key="M10" value="97.83038168594892" />
-      <entry key="M15" value="121.0912716465931" />
-      <entry key="M30" value="198.36049692473384" />
-      <entry key="H1" value="343.4001123038051" />
-      <entry key="H2" value="600.7860439466233" />
-      <entry key="H4" value="1081.173156350619" />
-      <entry key="D1" value="3773.6224069008135" />
-      <entry key="W1" value="7343.033897857597" />
+      <entry key="MS500" value="1.0000000000000098" />
+      <entry key="S2" value="1.0004376267813357" />
+      <entry key="S5" value="1.0671226094590638" />
+      <entry key="S10" value="1.3649515924475326" />
+      <entry key="S30" value="2.3879005446396864" />
+      <entry key="S60" value="5.340601998721024" />
+      <entry key="M2" value="13.386792361619788" />
+      <entry key="M5" value="37.5612931797293" />
+      <entry key="M10" value="79.3917587338824" />
+      <entry key="M15" value="119.35211893000472" />
+      <entry key="M30" value="225.1827222955618" />
+      <entry key="H1" value="398.44322410969295" />
+      <entry key="H2" value="681.4420964688412" />
+      <entry key="H4" value="1180.4713184843927" />
+      <entry key="D1" value="3929.929411207173" />
+      <entry key="W1" value="7552.704433840286" />
     </decayedCancelled>
     <decayedSelected>
-      <entry key="MS100" value="5.077472526153949E-251" />
-      <entry key="MS500" value="1.0265544481935782E-50" />
-      <entry key="S2" value="6.048120262809385E-13" />
-      <entry key="S5" value="2.4845033669648345E-5" />
-      <entry key="S10" value="0.00916507492573288" />
-      <entry key="S30" value="0.5488688968649067" />
-      <entry key="S60" value="1.8043273559749813" />
-      <entry key="M2" value="4.676691294449133" />
-      <entry key="M5" value="11.90580183445747" />
-      <entry key="M10" value="17.68711440422548" />
-      <entry key="M15" value="20.96506920962178" />
-      <entry key="M30" value="29.89355668012058" />
-      <entry key="H1" value="47.764295620918006" />
-      <entry key="H2" value="83.58116421893776" />
-      <entry key="H4" value="153.61879670207327" />
-      <entry key="D1" value="507.7793888959935" />
-      <entry key="W1" value="915.3920432081035" />
+      <entry key="MS100" value="2.4044223793808008E-60" />
+      <entry key="MS500" value="1.2898940730797984E-12" />
+      <entry key="S2" value="0.0019246138110158562" />
+      <entry key="S5" value="0.17354220349331836" />
+      <entry key="S10" value="0.8203859925123577" />
+      <entry key="S30" value="2.4433634109317937" />
+      <entry key="S60" value="3.7305953626481165" />
+      <entry key="M2" value="5.901916840130769" />
+      <entry key="M5" value="12.257770188184354" />
+      <entry key="M10" value="21.806366612882677" />
+      <entry key="M15" value="29.28125351640282" />
+      <entry key="M30" value="45.32398689184152" />
+      <entry key="H1" value="68.41560771946374" />
+      <entry key="H2" value="107.44492362027127" />
+      <entry key="H4" value="179.45079791458937" />
+      <entry key="D1" value="541.9190709115874" />
+      <entry key="W1" value="956.8624986256597" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.00942037365383406" />
-      <entry key="MS500" value="0.39338122267678294" />
-      <entry key="S2" value="0.7919622980837054" />
-      <entry key="S5" value="0.9183514302139378" />
-      <entry key="S10" value="1.107687390690862" />
-      <entry key="S30" value="4.486899926848367" />
-      <entry key="S60" value="13.394123238954334" />
-      <entry key="M2" value="33.29996922341202" />
-      <entry key="M5" value="78.63384821114784" />
-      <entry key="M10" value="115.4579610459522" />
-      <entry key="M15" value="142.009601657373" />
-      <entry key="M30" value="228.22114464724376" />
-      <entry key="H1" value="391.13865788399085" />
-      <entry key="H2" value="684.3451011398408" />
-      <entry key="H4" value="1234.7719019990886" />
-      <entry key="D1" value="4281.389829254058" />
-      <entry key="W1" value="8258.42271873185" />
+      <entry key="MS100" value="0.05328968073549728" />
+      <entry key="MS500" value="0.5563250602927351" />
+      <entry key="S2" value="0.8654372622170335" />
+      <entry key="S5" value="1.1607500032438636" />
+      <entry key="S10" value="2.0996930687832407" />
+      <entry key="S30" value="4.763354257079178" />
+      <entry key="S60" value="9.017297816168796" />
+      <entry key="M2" value="19.239162382817412" />
+      <entry key="M5" value="49.764530620625" />
+      <entry key="M10" value="101.14168265270574" />
+      <entry key="M15" value="148.58005189184937" />
+      <entry key="M30" value="270.46296215270837" />
+      <entry key="H1" value="466.8247530668738" />
+      <entry key="H2" value="788.8598260408149" />
+      <entry key="H4" value="1359.8992369420012" />
+      <entry key="D1" value="4471.835881045238" />
+      <entry key="W1" value="8509.563595250725" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -136,45 +149,46 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Cargo.Test btree::tests.executor&quot;: &quot;Run&quot;,
-    &quot;Cargo.Test catalog::tests.executor&quot;: &quot;Run&quot;,
-    &quot;Cargo.Test catalog::tests::create_table_rejects_duplicate.executor&quot;: &quot;Run&quot;,
-    &quot;Cargo.Test constant_fold::tests.executor&quot;: &quot;Run&quot;,
-    &quot;Cargo.Test constant_fold::tests::folds_float_comparison.executor&quot;: &quot;Run&quot;,
-    &quot;Cargo.Test interpret::tests.executor&quot;: &quot;Run&quot;,
-    &quot;Cargo.Test lower::tests.executor&quot;: &quot;Run&quot;,
-    &quot;Cargo.Test lower::tests::lowers_select_with_filter_float.executor&quot;: &quot;Run&quot;,
-    &quot;Cargo.Test pool::tests.executor&quot;: &quot;Run&quot;,
-    &quot;Cargo.Test writer::tests.executor&quot;: &quot;Run&quot;,
-    &quot;CidrDebugProfileConversion&quot;: &quot;true&quot;,
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
-    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
-    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;git.auto.fetch.suggestion.counter&quot;: &quot;1&quot;,
-    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
-    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/Users/sooraj/Code/Projects/crumble/crates/crumble-buffer/src&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.jshint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.jshint&quot;: &quot;&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;org.rust.cargo.project.model.PROJECT_DISCOVERY&quot;: &quot;true&quot;,
-    &quot;org.rust.disableDetachedFileInspection/Users/sooraj/Code/Projects/crumble/crates/crumble-wal/record.rs&quot;: &quot;true&quot;,
-    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Cargo.Test btree::tests.executor": "Run",
+    "Cargo.Test catalog::tests.executor": "Run",
+    "Cargo.Test catalog::tests::create_table_rejects_duplicate.executor": "Run",
+    "Cargo.Test constant_fold::tests.executor": "Run",
+    "Cargo.Test constant_fold::tests::folds_float_comparison.executor": "Run",
+    "Cargo.Test interpret::tests.executor": "Run",
+    "Cargo.Test lower::tests.executor": "Run",
+    "Cargo.Test lower::tests::lowers_select_with_filter_float.executor": "Run",
+    "Cargo.Test pool::tests.executor": "Run",
+    "Cargo.Test table::tests.executor": "Run",
+    "Cargo.Test writer::tests.executor": "Run",
+    "CidrDebugProfileConversion": "true",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.rust.reset.selective.auto.import": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "codeWithMe.voiceChat.enabledByDefault": "false",
+    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
+    "git-widget-placeholder": "main",
+    "git.auto.fetch.suggestion.counter": "1",
+    "junie.onboarding.icon.badge.shown": "true",
+    "kotlin-language-version-configured": "true",
+    "last_opened_file_path": "/Users/sooraj/Code/Projects/crumble/crates/crumble-buffer/src",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.jshint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.jshint": "",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
+    "org.rust.disableDetachedFileInspection/Users/sooraj/Code/Projects/crumble/crates/crumble-wal/record.rs": "true",
+    "to.speed.mode.migration.done": "true",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/crates/crumble-buffer/src" />
@@ -184,7 +198,7 @@
       <recent name="$PROJECT_DIR$/crates/crumble-buffer/src" />
     </key>
   </component>
-  <component name="RunManager" selected="Cargo.Test btree::tests">
+  <component name="RunManager" selected="Cargo.Test table::tests">
     <configuration name="Test btree::tests" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
       <option name="command" value="test --package crumble-index --lib -- btree::tests" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$" />
@@ -219,8 +233,8 @@
         <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
       </method>
     </configuration>
-    <configuration name="Test lower::tests::lowers_select_with_filter_float" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
-      <option name="command" value="test --package crumble-ir --lib -- lower::tests::lowers_select_with_filter_float --exact" />
+    <configuration name="Test pool::tests" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="command" value="test --package crumble-buffer --lib -- pool::tests" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$" />
       <envs />
       <option name="emulateTerminal" value="true" />
@@ -236,8 +250,8 @@
         <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
       </method>
     </configuration>
-    <configuration name="Test pool::tests" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
-      <option name="command" value="test --package crumble-buffer --lib -- pool::tests" />
+    <configuration name="Test table::tests" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="command" value="test --package crumble-storage --lib -- table::tests" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$" />
       <envs />
       <option name="emulateTerminal" value="true" />
@@ -272,6 +286,7 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Cargo.Test table::tests" />
         <item itemvalue="Cargo.Test btree::tests" />
         <item itemvalue="Cargo.Test writer::tests" />
         <item itemvalue="Cargo.Test pool::tests" />

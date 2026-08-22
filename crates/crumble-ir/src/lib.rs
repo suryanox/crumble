@@ -1,3 +1,4 @@
+mod column;
 mod error;
 mod expr;
 mod lower;
@@ -5,6 +6,7 @@ mod physical;
 mod plan;
 mod to_physical;
 
+pub use column::{ColumnDef, ColumnType};
 pub use error::LowerError;
 pub use expr::{BinaryOperator, Expr, Literal};
 pub use lower::lower;

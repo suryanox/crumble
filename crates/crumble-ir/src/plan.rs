@@ -1,4 +1,5 @@
 use crate::Literal;
+use crate::column::ColumnDef;
 use crate::expr::Expr;
 
 /**
@@ -24,7 +25,7 @@ pub enum LogicalPlan {
     },
     CreateTable {
         table: String,
-        columns: Vec<String>,
+        columns: Vec<ColumnDef>,
     },
     Delete {
         table: String,

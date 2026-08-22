@@ -1,16 +1,16 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use crumble_index::BTree;
-use serde::{Deserialize, Serialize};
-
+use crate::column::ColumnDef;
 use crate::error::StorageError;
 use crate::index_key::value_to_index_key;
 use crate::table::Table;
+use crumble_index::BTree;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct CatalogMeta {
-    tables: HashMap<String, Vec<String>>,
+    tables: HashMap<String, Vec<ColumnDef>>,
     indexes: HashMap<String, IndexMeta>,
 }
 
@@ -88,7 +88,7 @@ impl Catalog {
     pub fn create_table(
         &mut self,
         name: impl Into<String>,
-        columns: Vec<String>,
+        columns: Vec<ColumnDef>,
     ) -> Result<(), StorageError> {
         let name = name.into();
         if self.tables.contains_key(&name) {
@@ -119,7 +119,7 @@ impl Catalog {
         let col_pos = target
             .columns()
             .iter()
-            .position(|c| c == &column)
+            .position(|c| c.name == column)
             .ok_or_else(|| StorageError::TableNotFound(format!("{table_name}.{column}")))?;
 
         for ((page_index, slot), row) in target.rows_with_location()? {

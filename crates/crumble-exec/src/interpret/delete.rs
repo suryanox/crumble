@@ -11,9 +11,8 @@ pub(super) fn delete(
     predicate: &Option<Expr>,
 ) -> Result<RowSet, ExecError> {
     let target = catalog.get_mut(table)?;
-    let columns = target.columns().to_vec();
     let located_rows = target.rows_with_location()?;
-
+    let columns: Vec<String> = target.columns().iter().map(|c| c.name.clone()).collect();
     let mut to_delete: Vec<(u32, u16, Row)> = Vec::new();
     for ((page_index, slot), row) in located_rows {
         let matches = match predicate {

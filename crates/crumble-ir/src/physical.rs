@@ -1,5 +1,5 @@
-use crate::Literal;
 use crate::expr::Expr;
+use crate::{ColumnDef, Literal};
 
 /**
 * This tells how to actually run it which strategy
@@ -9,9 +9,7 @@ pub enum PhysicalPlan {
     /**
     read every row in the table start to finish, no index, no shortcuts - Simplest way
     */
-    SeqScan {
-        table: String,
-    },
+    SeqScan { table: String },
     Filter {
         input: Box<PhysicalPlan>,
         predicate: Expr,
@@ -27,7 +25,7 @@ pub enum PhysicalPlan {
     },
     CreateTable {
         table: String,
-        columns: Vec<String>,
+        columns: Vec<ColumnDef>,
     },
     Delete {
         table: String,

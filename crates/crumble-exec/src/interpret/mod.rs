@@ -63,13 +63,16 @@ mod tests {
     use super::*;
     use crumble_ir::{lower, to_physical};
     use crumble_sql::parse;
-    use crumble_storage::{Catalog, Row, Value};
+    use crumble_storage::{Catalog, ColumnType, Row, Value, col};
 
     fn seeded_catalog() -> (tempfile::TempDir, Catalog) {
         let dir = tempfile::tempdir().unwrap();
         let mut catalog = Catalog::open(dir.path()).unwrap();
         catalog
-            .create_table("users", vec!["name".to_string(), "age".to_string()])
+            .create_table(
+                "users",
+                vec![col("name", ColumnType::String), col("age", ColumnType::Int)],
+            )
             .unwrap();
 
         let users = catalog.get_mut("users").unwrap();
@@ -87,7 +90,13 @@ mod tests {
             .unwrap();
 
         catalog
-            .create_table("metrics", vec!["label".to_string(), "score".to_string()])
+            .create_table(
+                "metrics",
+                vec![
+                    col("label", ColumnType::String),
+                    col("score", ColumnType::Float),
+                ],
+            )
             .unwrap();
 
         let metrics = catalog.get_mut("metrics").unwrap();

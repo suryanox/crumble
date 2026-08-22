@@ -1,3 +1,4 @@
+use crate::column::ColumnDef;
 use crate::error::StorageError;
 use crate::row::Row;
 use crumble_buffer::BufferPool;
@@ -8,7 +9,7 @@ const BUFFER_CAPACITY: usize = 64;
 #[derive(Debug)]
 pub struct Table {
     name: String,
-    columns: Vec<String>,
+    columns: Vec<ColumnDef>,
     pool: BufferPool,
     wal: WalWriter,
 }
@@ -16,7 +17,7 @@ pub struct Table {
 impl Table {
     pub fn open(
         name: impl Into<String>,
-        columns: Vec<String>,
+        columns: Vec<ColumnDef>,
         dir: impl AsRef<Path>,
     ) -> Result<Self, StorageError> {
         let name = name.into();
@@ -73,7 +74,7 @@ impl Table {
         &self.name
     }
 
-    pub fn columns(&self) -> &[String] {
+    pub fn columns(&self) -> &[ColumnDef] {
         &self.columns
     }
 
@@ -85,6 +86,15 @@ impl Table {
                 expected: self.columns.len(),
                 actual: row.values().len(),
             });
+        }
+
+        for (value, col) in row.values().iter().zip(self.columns.iter()) {
+            if !col.ty.matches(value) {
+                return Err(StorageError::TypeMismatch {
+                    column: col.name.clone(),
+                    expected: format!("{:?}", col.ty),
+                });
+            }
         }
 
         let bytes = row.to_bytes()?;
@@ -212,9 +222,10 @@ impl Table {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::column::{ColumnType, col};
     use crate::value::Value;
 
-    fn temp_table(columns: Vec<String>) -> (tempfile::TempDir, Table) {
+    fn temp_table(columns: Vec<ColumnDef>) -> (tempfile::TempDir, Table) {
         let dir = tempfile::tempdir().unwrap();
         let table = Table::open("users", columns, dir.path()).unwrap();
         (dir, table)
@@ -222,7 +233,7 @@ mod tests {
 
     #[test]
     fn insert_rejects_wrong_column_count() {
-        let (_dir, mut table) = temp_table(vec!["name".to_string()]);
+        let (_dir, mut table) = temp_table(vec![col("name", ColumnType::String)]);
         let row = Row::new(vec![Value::String("a".to_string()), Value::Int(1)]);
 
         let result = table.insert(row);
@@ -238,7 +249,7 @@ mod tests {
 
     #[test]
     fn insert_accepts_matching_row() -> Result<(), StorageError> {
-        let (_dir, mut table) = temp_table(vec!["name".to_string()]);
+        let (_dir, mut table) = temp_table(vec![col("name", ColumnType::String)]);
         table.insert(Row::new(vec![Value::String("alice".to_string())]))?;
 
         assert_eq!(table.rows()?.len(), 1);
@@ -250,7 +261,8 @@ mod tests {
         let dir = tempfile::tempdir()?;
 
         {
-            let mut table = Table::open("users", vec!["name".to_string()], dir.path())?;
+            let mut table =
+                Table::open("users", vec![col("name", ColumnType::String)], dir.path())?;
             table.insert(Row::new(vec![Value::String("alice".to_string())]))?;
             table.insert(Row::new(vec![Value::String("bob".to_string())]))?;
             // table is dropped here WITHOUT any explicit flush/checkpoint —
@@ -258,7 +270,8 @@ mod tests {
             // Both inserts are only durable via the WAL at this point.
         }
 
-        let mut recovered = Table::open("users", vec!["name".to_string()], dir.path())?;
+        let mut recovered =
+            Table::open("users", vec![col("name", ColumnType::String)], dir.path())?;
         let rows = recovered.rows()?;
 
         assert_eq!(
@@ -277,7 +290,8 @@ mod tests {
         let dir = tempfile::tempdir()?;
 
         {
-            let mut table = Table::open("users", vec!["name".to_string()], dir.path())?;
+            let mut table =
+                Table::open("users", vec![col("name", ColumnType::String)], dir.path())?;
             table.insert(Row::new(vec![Value::String("alice".to_string())]))?;
             // Force this page to actually flush to disk (not just cached-dirty),
             // by evicting it: fill the buffer pool past capacity with other pages.
@@ -286,7 +300,8 @@ mod tests {
             }
         }
 
-        let mut recovered = Table::open("users", vec!["name".to_string()], dir.path())?;
+        let mut recovered =
+            Table::open("users", vec![col("name", ColumnType::String)], dir.path())?;
         let rows = recovered.rows()?;
         let alice_count = rows
             .iter()

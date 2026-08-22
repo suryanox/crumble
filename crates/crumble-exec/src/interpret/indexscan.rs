@@ -15,8 +15,7 @@ pub(super) fn indexscan(
     let locations = catalog.index_mut(index_name)?.search(&index_key)?;
 
     let target = catalog.get_mut(table)?;
-    let columns = target.columns().to_vec();
-
+    let columns: Vec<String> = target.columns().iter().map(|c| c.name.clone()).collect();
     let mut rows: Vec<Row> = Vec::new();
     for (page_index, slot) in locations {
         if let Some(row) = target.row_at(page_index, slot)? {
@@ -55,8 +54,7 @@ pub(super) fn rangeindexscan(
     )?;
 
     let target = catalog.get_mut(table)?;
-    let columns = target.columns().to_vec();
-
+    let columns: Vec<String> = target.columns().iter().map(|c| c.name.clone()).collect();
     let mut rows = Vec::new();
     for (page_index, slot) in locations {
         if let Some(row) = target.row_at(page_index, slot)? {

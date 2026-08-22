@@ -31,4 +31,7 @@ pub enum StorageError {
 
     #[error(transparent)]
     Index(#[from] IndexError),
+
+    #[error("type mismatch on column '{column}': expected {expected}")]
+    TypeMismatch { column: String, expected: String },
 }

@@ -11,8 +11,7 @@ pub(super) fn insert(
     rows: &[Vec<Literal>],
 ) -> Result<RowSet, ExecError> {
     let target = catalog.get_mut(table)?;
-    let table_columns = target.columns().to_vec();
-
+    let table_columns: Vec<String> = target.columns().iter().map(|c| c.name.clone()).collect();
     let mut inserted = Vec::new();
     for row in rows {
         let values: Vec<Value> = row.iter().map(literal_to_value).collect();
