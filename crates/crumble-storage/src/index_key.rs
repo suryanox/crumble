@@ -8,6 +8,7 @@ pub fn value_to_index_key(value: &Value) -> Option<IndexKey> {
     match value {
         Value::Int(n) => Some(IndexKey::Int(*n)),
         Value::String(s) => Some(IndexKey::String(s.clone())),
+        Value::Null => Some(IndexKey::Null),
         _ => None,
     }
 }

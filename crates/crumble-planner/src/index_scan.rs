@@ -24,7 +24,30 @@ pub fn plan_index_scans(plan: PhysicalPlan, catalog: &Catalog) -> PhysicalPlan {
 }
 
 fn try_rewrite(table: &str, predicate: &Expr, catalog: &Catalog) -> Option<PhysicalPlan> {
+    if let Expr::IsNull { expr, negated } = predicate {
+        if let Expr::Column(column) = expr.as_ref() {
+            let index_name = catalog.index_for(table, column)?;
+            return Some(if !negated {
+                PhysicalPlan::IndexScan {
+                    table: table.to_string(),
+                    index_name: index_name.to_string(),
+                    key: Literal::Null,
+                }
+            } else {
+                PhysicalPlan::RangeIndexScan {
+                    table: table.to_string(),
+                    index_name: index_name.to_string(),
+                    lower: None,
+                    upper: Some((Literal::Null, false)),
+                }
+            });
+        }
+    }
+
     if let Some((column, key)) = equality_on_literal(predicate) {
+        if matches!(key, Literal::Null) {
+            return None; // `col = NULL` is never rewritten always empty, handled by Filter
+        }
         let index_name = catalog.index_for(table, &column)?;
         return Some(PhysicalPlan::IndexScan {
             table: table.to_string(),
@@ -34,13 +57,15 @@ fn try_rewrite(table: &str, predicate: &Expr, catalog: &Catalog) -> Option<Physi
     }
 
     if let Some((column, bound, inclusive, lower_side)) = comparison_on_literal(predicate) {
+        if matches!(bound, Literal::Null) {
+            return None; // comparisons against NULL are always unknown — same reasoning
+        }
         let index_name = catalog.index_for(table, &column)?;
         let (lower, upper) = if lower_side {
             (Some((bound, inclusive)), None)
         } else {
             (None, Some((bound, inclusive)))
         };
-
         return Some(PhysicalPlan::RangeIndexScan {
             table: table.to_string(),
             index_name: index_name.to_string(),
@@ -48,6 +73,7 @@ fn try_rewrite(table: &str, predicate: &Expr, catalog: &Catalog) -> Option<Physi
             upper,
         });
     }
+
     None
 }
 

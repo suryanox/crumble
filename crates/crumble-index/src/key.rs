@@ -4,4 +4,5 @@ use serde::{Deserialize, Serialize};
 pub enum IndexKey {
     Int(i64),
     String(String),
+    Null,
 }
