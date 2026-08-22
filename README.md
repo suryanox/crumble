@@ -48,7 +48,7 @@ Documentation, specifications, research papers, books, and existing implementati
 - [x] WAL + crash recovery (LSN-stamped pages, idempotent replay)
 - [x] tombstone deletes (no physical byte removal)
 - [ ] page compaction / space reclaim
-- [ ] typed schema (CREATE TABLE columns have no enforced type yet)
+- [x] typed schema (CREATE TABLE columns have an enforced type: INT/BOOL/TEXT/FLOAT)
 
 **query execution**
 - [x] SELECT (seq scan, filter, project)
