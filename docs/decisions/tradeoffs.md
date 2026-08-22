@@ -206,3 +206,21 @@ not supporting them claims to respect a declared width while secretly
 ignoring it, exactly what typed-schema was built to prevent. NULL support is
 the more honestly urgent gap no column can be absent a value at all right
 now.
+
+## NULL  three-valued logic, not a shortcut
+Value::Null is a real variant, not a sentinel or Option<Value> wrapper.
+comparisons (=, <, >, etc.) against a null operand always produce Null, not
+Bool — matches real SQL, including the classic gotcha that `col = NULL`
+always returns zero rows (use `IS NULL` instead). AND/OR use real
+three-valued truth tables: `false AND NULL` is `false`, not `NULL`, since
+false already determines the outcome regardless of the unknown side.
+IndexKey::Null appended LAST in the enum on purpose — derived Ord makes
+nulls sort after every real value for free (Postgres convention), which
+also means `IS NOT NULL` reduces to a plain range_search(upper: Null,
+exclusive) and `IS NULL` reduces to a plain search(Null) — no new B+tree
+operation needed, both reuse already-tested code. Planner explicitly
+refuses to rewrite `col = NULL` / range comparisons against NULL into an
+index scan — always routes through Filter's three-valued check instead,
+since an index lookup would answer "what's stored under key NULL" which is
+a different question from "is this unknown," and rewriting it wrong would
+silently violate the very semantics just built.
