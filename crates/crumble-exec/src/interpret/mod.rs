@@ -3,6 +3,7 @@ use crate::interpret::delete::delete;
 use crate::interpret::filter::filter;
 use crate::interpret::indexscan::{indexscan, rangeindexscan};
 use crate::interpret::insert::insert;
+use crate::interpret::nestedloopjoin::nestedloopjoin;
 use crate::interpret::project::project;
 use crate::interpret::seqscan::seqscan;
 use crate::interpret::update::update;
@@ -20,6 +21,7 @@ mod create;
 mod delete;
 mod indexscan;
 mod insert;
+mod nestedloopjoin;
 mod update;
 
 pub fn execute(plan: &PhysicalPlan, catalog: &mut Catalog) -> Result<RowSet, ExecError> {
@@ -55,6 +57,13 @@ pub fn execute(plan: &PhysicalPlan, catalog: &mut Catalog) -> Result<RowSet, Exe
             lower,
             upper,
         } => rangeindexscan(catalog, table, index_name, lower, upper),
+        PhysicalPlan::NestedLoopJoin {
+            left,
+            right,
+            left_table,
+            right_table,
+            on,
+        } => nestedloopjoin(catalog, left, right, left_table, right_table, on),
     }
 }
 
