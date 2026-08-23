@@ -194,4 +194,181 @@ mod tests {
         assert_eq!(result.rows().len(), 2);
         Ok(())
     }
+
+    fn seeded_catalog_with_orders() -> (tempfile::TempDir, Catalog) {
+        let dir = tempfile::tempdir().unwrap();
+        let mut catalog = Catalog::open(dir.path()).unwrap();
+
+        catalog
+            .create_table(
+                "users",
+                vec![col("id", ColumnType::Int), col("name", ColumnType::String)],
+            )
+            .unwrap();
+        let users = catalog.get_mut("users").unwrap();
+        users
+            .insert(Row::new(vec![
+                Value::Int(1),
+                Value::String("alice".to_string()),
+            ]))
+            .unwrap();
+        users
+            .insert(Row::new(vec![
+                Value::Int(2),
+                Value::String("bob".to_string()),
+            ]))
+            .unwrap();
+        users
+            .insert(Row::new(vec![
+                Value::Int(3),
+                Value::String("carol".to_string()),
+            ]))
+            .unwrap();
+
+        catalog
+            .create_table(
+                "orders",
+                vec![
+                    col("id", ColumnType::Int),
+                    col("user_id", ColumnType::Int),
+                    col("total", ColumnType::Int),
+                ],
+            )
+            .unwrap();
+        let orders = catalog.get_mut("orders").unwrap();
+        orders
+            .insert(Row::new(vec![
+                Value::Int(100),
+                Value::Int(1),
+                Value::Int(50),
+            ]))
+            .unwrap();
+        orders
+            .insert(Row::new(vec![
+                Value::Int(101),
+                Value::Int(1),
+                Value::Int(30),
+            ]))
+            .unwrap();
+        orders
+            .insert(Row::new(vec![
+                Value::Int(102),
+                Value::Int(2),
+                Value::Int(20),
+            ]))
+            .unwrap();
+        orders
+            .insert(Row::new(vec![
+                Value::Int(103),
+                Value::Int(99),
+                Value::Int(500),
+            ]))
+            .unwrap();
+        // note: carol (id 3) has no orders; order 103 (user_id 99) has no matching user —
+        // both are deliberate, exercising the "unmatched" side of LEFT/RIGHT joins.
+
+        (dir, catalog)
+    }
+
+    fn run(sql: &str, catalog: &mut Catalog) -> Result<RowSet, Box<dyn std::error::Error>> {
+        let ast = parse(sql)?;
+        let physical = to_physical(lower(&ast)?);
+        Ok(execute(&physical, catalog)?)
+    }
+
+    #[test]
+    fn inner_join_returns_only_matched_pairs() -> Result<(), Box<dyn std::error::Error>> {
+        let (_dir, mut catalog) = seeded_catalog_with_orders();
+
+        let result = run(
+            "SELECT users.name, orders.total FROM users JOIN orders ON users.id = orders.user_id",
+            &mut catalog,
+        )?;
+
+        assert_eq!(
+            result.columns(),
+            &["users.name".to_string(), "orders.total".to_string()]
+        );
+        assert_eq!(
+            result.rows().len(),
+            3,
+            "carol (no orders) and the orphaned order must both be excluded"
+        );
+
+        let names: Vec<&Value> = result.rows().iter().map(|r| &r.values()[0]).collect();
+        assert!(
+            !names.contains(&&Value::String("carol".to_string())),
+            "carol has no orders, should not appear"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn left_join_pads_unmatched_left_row_with_null() -> Result<(), Box<dyn std::error::Error>> {
+        let (_dir, mut catalog) = seeded_catalog_with_orders();
+
+        let result = run(
+            "SELECT users.name, orders.total FROM users LEFT JOIN orders ON users.id = orders.user_id",
+            &mut catalog,
+        )?;
+
+        assert_eq!(
+            result.rows().len(),
+            4,
+            "3 matched orders + 1 unmatched user (carol)"
+        );
+
+        let carol_row = result
+            .rows()
+            .iter()
+            .find(|r| r.values()[0] == Value::String("carol".to_string()))
+            .expect("carol must appear, padded with NULL");
+
+        assert_eq!(carol_row.values()[1], Value::Null);
+        Ok(())
+    }
+
+    #[test]
+    fn right_join_pads_unmatched_right_row_with_null() -> Result<(), Box<dyn std::error::Error>> {
+        let (_dir, mut catalog) = seeded_catalog_with_orders();
+
+        let result = run(
+            "SELECT users.name, orders.total FROM users RIGHT JOIN orders ON users.id = orders.user_id",
+            &mut catalog,
+        )?;
+
+        assert_eq!(
+            result.rows().len(),
+            4,
+            "3 matched orders + 1 unmatched order (user_id 99)"
+        );
+
+        let orphan_row = result
+            .rows()
+            .iter()
+            .find(|r| r.values()[1] == Value::Int(500))
+            .expect("the orphaned order (total=500) must appear, padded with NULL");
+
+        assert_eq!(orphan_row.values()[0], Value::Null);
+        Ok(())
+    }
+
+    #[test]
+    fn where_filters_correctly_on_top_of_a_join() -> Result<(), Box<dyn std::error::Error>> {
+        let (_dir, mut catalog) = seeded_catalog_with_orders();
+
+        let result = run(
+            "SELECT users.name FROM users JOIN orders ON users.id = orders.user_id WHERE orders.total > 25",
+            &mut catalog,
+        )?;
+
+        // alice has two orders (50, 30), both > 25 — appears twice.
+        // bob has one order (20), not > 25 — excluded entirely.
+        assert_eq!(result.rows().len(), 2);
+        for row in result.rows() {
+            assert_eq!(row.values()[0], Value::String("alice".to_string()));
+        }
+        Ok(())
+    }
 }
