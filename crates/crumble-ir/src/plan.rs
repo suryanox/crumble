@@ -56,4 +56,5 @@ pub enum JoinKind {
     Inner,
     Left,
     Right,
+    FullOuter,
 }

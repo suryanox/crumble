@@ -51,14 +51,14 @@ pub(super) fn nestedloopjoin(
             }
         }
 
-        if !matched_any && *kind == JoinKind::Left {
+        if !matched_any && (*kind == JoinKind::Left || *kind == JoinKind::FullOuter) {
             let mut padded_values = left_row.values().to_vec();
             padded_values.extend(std::iter::repeat(Value::Null).take(right_width));
             matched_rows.push(Row::new(padded_values));
         }
     }
 
-    if *kind == JoinKind::Right {
+    if *kind == JoinKind::Right || *kind == JoinKind::FullOuter {
         let left_width = left_result.columns().len();
 
         for (right_idx, right_row) in right_result.rows().iter().enumerate() {
