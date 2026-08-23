@@ -57,6 +57,7 @@ Documentation, specifications, research papers, books, and existing implementati
 - [x] UPDATE (delete + insert under the hood)
 - [x] DELETE
 - [x] CREATE TABLE
+- [x] table aliases (JOIN and single-table, including mixed aliased/unaliased sides)
 - [x] JOIN (INNER, LEFT, RIGHT, FULL OUTER — nested loop algorithm, qualified table.column naming)
 - [ ] subqueries
 - [ ] aggregates (COUNT/SUM/GROUP BY etc)
