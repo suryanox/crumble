@@ -27,13 +27,14 @@ pub(super) fn nestedloopjoin(
         )
         .collect();
 
+    let mut right_matched = vec![false; right_result.rows().len()];
     let mut matched_rows = Vec::new();
 
     let right_width = right_result.columns().len();
 
     for left_row in left_result.rows() {
         let mut matched_any = false;
-        for right_row in right_result.rows() {
+        for (right_idx, right_row) in right_result.rows().iter().enumerate() {
             let mut combined_values = left_row.values().to_vec();
             combined_values.extend(right_row.values().iter().cloned());
             let combined_row = Row::new(combined_values);
@@ -45,6 +46,7 @@ pub(super) fn nestedloopjoin(
 
             if is_match {
                 matched_any = true;
+                right_matched[right_idx] = true;
                 matched_rows.push(combined_row);
             }
         }
@@ -53,6 +55,22 @@ pub(super) fn nestedloopjoin(
             let mut padded_values = left_row.values().to_vec();
             padded_values.extend(std::iter::repeat(Value::Null).take(right_width));
             matched_rows.push(Row::new(padded_values));
+        }
+    }
+
+    if *kind == JoinKind::Right {
+        let left_width = left_result.columns().len();
+
+        for (right_idx, right_row) in right_result.rows().iter().enumerate() {
+            if !right_matched[right_idx] {
+                let mut padded_values = std::iter::repeat(Value::Null)
+                    .take(left_width)
+                    .collect::<Vec<_>>();
+
+                padded_values.extend(right_row.values().iter().cloned());
+
+                matched_rows.push(Row::new(padded_values));
+            }
         }
     }
 

@@ -55,4 +55,5 @@ pub enum LogicalPlan {
 pub enum JoinKind {
     Inner,
     Left,
+    Right,
 }

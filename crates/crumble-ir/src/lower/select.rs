@@ -57,6 +57,9 @@ fn lower_from(from: &[TableWithJoins]) -> Result<LogicalPlan, LowerError> {
                 sqlparser::ast::JoinOperator::Left(sqlparser::ast::JoinConstraint::On(expr)) => {
                     (lower_expr(expr)?, JoinKind::Left)
                 }
+                sqlparser::ast::JoinOperator::Right(sqlparser::ast::JoinConstraint::On(expr)) => {
+                    (lower_expr(expr)?, JoinKind::Right)
+                }
                 other => return Err(LowerError::Unsupported(format!("join type: {other:?}"))),
             };
 
