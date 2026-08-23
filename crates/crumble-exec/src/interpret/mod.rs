@@ -371,4 +371,68 @@ mod tests {
         }
         Ok(())
     }
+
+    #[test]
+    fn right_join_does_not_duplicate_matched_rows() -> Result<(), Box<dyn std::error::Error>> {
+        let (_dir, mut catalog) = seeded_catalog_with_orders();
+
+        let result = run(
+            "SELECT users.name, orders.total FROM users RIGHT JOIN orders ON users.id = orders.user_id",
+            &mut catalog,
+        )?;
+
+        let alice_count = result
+            .rows()
+            .iter()
+            .filter(|r| r.values()[0] == Value::String("alice".to_string()))
+            .count();
+
+        assert_eq!(
+            alice_count, 2,
+            "alice's two real orders must each appear exactly once, no more"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn full_outer_join_pads_both_unmatched_sides() -> Result<(), Box<dyn std::error::Error>> {
+        let (_dir, mut catalog) = seeded_catalog_with_orders();
+
+        let result = run(
+            "SELECT users.name, orders.total FROM users FULL JOIN orders ON users.id = orders.user_id",
+            &mut catalog,
+        )?;
+
+        assert_eq!(
+            result.rows().len(),
+            5,
+            "3 matched + carol (unmatched left) + order 103 (unmatched right)"
+        );
+
+        let carol_row = result
+            .rows()
+            .iter()
+            .find(|r| r.values()[0] == Value::String("carol".to_string()))
+            .expect("carol must appear, padded with NULL on the right");
+        assert_eq!(carol_row.values()[1], Value::Null);
+
+        let orphan_row = result
+            .rows()
+            .iter()
+            .find(|r| r.values()[1] == Value::Int(500))
+            .expect("the orphaned order must appear, padded with NULL on the left");
+        assert_eq!(orphan_row.values()[0], Value::Null);
+
+        let alice_count = result
+            .rows()
+            .iter()
+            .filter(|r| r.values()[0] == Value::String("alice".to_string()))
+            .count();
+        assert_eq!(
+            alice_count, 2,
+            "matched rows must not be duplicated by either padding pass"
+        );
+
+        Ok(())
+    }
 }

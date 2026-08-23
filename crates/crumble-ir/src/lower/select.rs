@@ -36,17 +36,17 @@ fn lower_from(from: &[TableWithJoins]) -> Result<LogicalPlan, LowerError> {
         ));
     };
 
-    let left_table = table_name(&table_with_joins.relation)?;
+    let (left_real, left_qualifier) = table_name_and_qualifier(&table_with_joins.relation)?;
     let left_plan = LogicalPlan::Scan {
-        table: left_table.clone(),
+        table: left_real.clone(),
     };
 
     match table_with_joins.joins.as_slice() {
         [] => Ok(left_plan),
         [join] => {
-            let right_table = table_name(&join.relation)?;
+            let (right_real, right_qualifier) = table_name_and_qualifier(&join.relation)?;
             let right_plan = LogicalPlan::Scan {
-                table: right_table.clone(),
+                table: right_real.clone(),
             };
 
             let (on, kind) = match &join.join_operator {
@@ -69,8 +69,8 @@ fn lower_from(from: &[TableWithJoins]) -> Result<LogicalPlan, LowerError> {
             Ok(LogicalPlan::Join {
                 left: Box::new(left_plan),
                 right: Box::new(right_plan),
-                left_table,
-                right_table,
+                left_table: left_qualifier,
+                right_table: right_qualifier,
                 on,
                 kind,
             })
@@ -81,9 +81,16 @@ fn lower_from(from: &[TableWithJoins]) -> Result<LogicalPlan, LowerError> {
     }
 }
 
-fn table_name(relation: &TableFactor) -> Result<String, LowerError> {
+fn table_name_and_qualifier(relation: &TableFactor) -> Result<(String, String), LowerError> {
     match relation {
-        TableFactor::Table { name, .. } => Ok(name.to_string()),
+        TableFactor::Table { name, alias, .. } => {
+            let real_name = name.to_string();
+            let qualifier = alias
+                .as_ref()
+                .map(|a| a.name.value.clone())
+                .unwrap_or_else(|| real_name.clone());
+            Ok((real_name, qualifier))
+        }
         other => Err(LowerError::Unsupported(format!("FROM entry: {other:?}"))),
     }
 }
