@@ -44,5 +44,18 @@ pub fn to_physical(plan: LogicalPlan) -> PhysicalPlan {
             table,
             column,
         },
+        LogicalPlan::Join {
+            left,
+            right,
+            left_table,
+            right_table,
+            on,
+        } => PhysicalPlan::NestedLoopJoin {
+            left: Box::new(to_physical(*left)),
+            right: Box::new(to_physical(*right)),
+            left_table,
+            right_table,
+            on,
+        },
     }
 }

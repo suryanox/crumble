@@ -52,6 +52,19 @@ fn fold_plan(plan: LogicalPlan) -> LogicalPlan {
             table,
             column,
         },
+        LogicalPlan::Join {
+            left,
+            right,
+            left_table,
+            right_table,
+            on,
+        } => LogicalPlan::Join {
+            left: Box::new(fold_plan(*left)),
+            right: Box::new(fold_plan(*right)),
+            left_table,
+            right_table,
+            on: fold_expr(on),
+        },
     }
 }
 

@@ -52,4 +52,11 @@ pub enum PhysicalPlan {
         lower: Option<(Literal, bool)>,
         upper: Option<(Literal, bool)>,
     },
+    NestedLoopJoin {
+        left: Box<PhysicalPlan>,
+        right: Box<PhysicalPlan>,
+        left_table: String,
+        right_table: String,
+        on: Expr,
+    },
 }

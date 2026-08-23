@@ -41,4 +41,11 @@ pub enum LogicalPlan {
         table: String,
         column: String,
     },
+    Join {
+        left: Box<LogicalPlan>,
+        right: Box<LogicalPlan>,
+        left_table: String,
+        right_table: String,
+        on: Expr,
+    },
 }

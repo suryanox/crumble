@@ -24,6 +24,14 @@ pub(in crate::lower) fn lower_expr(expr: &SqlExpr) -> Result<Expr, LowerError> {
             expr: Box::new(lower_expr(inner)?),
             negated: true,
         }),
+        SqlExpr::CompoundIdentifier(parts) => {
+            let name = parts
+                .iter()
+                .map(|p| p.value.as_str())
+                .collect::<Vec<_>>()
+                .join(".");
+            Ok(Expr::Column(name))
+        }
         other => Err(LowerError::Unsupported(format!("expression: {other:?}"))),
     }
 }
