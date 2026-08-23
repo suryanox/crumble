@@ -1,4 +1,5 @@
 use crate::expr::Expr;
+use crate::plan::JoinKind;
 use crate::{ColumnDef, Literal};
 
 /**
@@ -58,5 +59,6 @@ pub enum PhysicalPlan {
         left_table: String,
         right_table: String,
         on: Expr,
+        kind: JoinKind,
     },
 }

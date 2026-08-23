@@ -1,4 +1,5 @@
 use crate::lower::expr::lower_expr;
+use crate::plan::JoinKind;
 use crate::{LogicalPlan, LowerError};
 use sqlparser::ast::{Expr as SqlExpr, Select, SelectItem, SetExpr, TableFactor, TableWithJoins};
 
@@ -48,10 +49,13 @@ fn lower_from(from: &[TableWithJoins]) -> Result<LogicalPlan, LowerError> {
                 table: right_table.clone(),
             };
 
-            let on = match &join.join_operator {
+            let (on, kind) = match &join.join_operator {
                 sqlparser::ast::JoinOperator::Inner(sqlparser::ast::JoinConstraint::On(expr))
                 | sqlparser::ast::JoinOperator::Join(sqlparser::ast::JoinConstraint::On(expr)) => {
-                    lower_expr(expr)?
+                    (lower_expr(expr)?, JoinKind::Inner)
+                }
+                sqlparser::ast::JoinOperator::Left(sqlparser::ast::JoinConstraint::On(expr)) => {
+                    (lower_expr(expr)?, JoinKind::Left)
                 }
                 other => return Err(LowerError::Unsupported(format!("join type: {other:?}"))),
             };
@@ -62,6 +66,7 @@ fn lower_from(from: &[TableWithJoins]) -> Result<LogicalPlan, LowerError> {
                 left_table,
                 right_table,
                 on,
+                kind,
             })
         }
         _ => Err(LowerError::Unsupported(

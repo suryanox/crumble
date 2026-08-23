@@ -50,12 +50,14 @@ pub fn to_physical(plan: LogicalPlan) -> PhysicalPlan {
             left_table,
             right_table,
             on,
+            kind,
         } => PhysicalPlan::NestedLoopJoin {
             left: Box::new(to_physical(*left)),
             right: Box::new(to_physical(*right)),
             left_table,
             right_table,
             on,
+            kind,
         },
     }
 }

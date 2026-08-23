@@ -47,5 +47,12 @@ pub enum LogicalPlan {
         left_table: String,
         right_table: String,
         on: Expr,
+        kind: JoinKind,
     },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum JoinKind {
+    Inner,
+    Left,
 }

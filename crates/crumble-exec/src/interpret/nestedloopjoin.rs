@@ -1,6 +1,6 @@
 use crate::interpret::eval::eval_expr;
 use crate::{ExecError, RowSet, execute};
-use crumble_ir::{Expr, PhysicalPlan};
+use crumble_ir::{Expr, JoinKind, PhysicalPlan};
 use crumble_storage::{Catalog, Row, Value};
 
 pub(super) fn nestedloopjoin(
@@ -10,6 +10,7 @@ pub(super) fn nestedloopjoin(
     left_table: &str,
     right_table: &str,
     on: &Expr,
+    kind: &JoinKind,
 ) -> Result<RowSet, ExecError> {
     let left_result = execute(left, catalog)?;
     let right_result = execute(right, catalog)?;
@@ -28,7 +29,10 @@ pub(super) fn nestedloopjoin(
 
     let mut matched_rows = Vec::new();
 
+    let right_width = right_result.columns().len();
+
     for left_row in left_result.rows() {
+        let mut matched_any = false;
         for right_row in right_result.rows() {
             let mut combined_values = left_row.values().to_vec();
             combined_values.extend(right_row.values().iter().cloned());
@@ -40,8 +44,15 @@ pub(super) fn nestedloopjoin(
             );
 
             if is_match {
+                matched_any = true;
                 matched_rows.push(combined_row);
             }
+        }
+
+        if !matched_any && *kind == JoinKind::Left {
+            let mut padded_values = left_row.values().to_vec();
+            padded_values.extend(std::iter::repeat(Value::Null).take(right_width));
+            matched_rows.push(Row::new(padded_values));
         }
     }
 

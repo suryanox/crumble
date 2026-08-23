@@ -63,7 +63,8 @@ pub fn execute(plan: &PhysicalPlan, catalog: &mut Catalog) -> Result<RowSet, Exe
             left_table,
             right_table,
             on,
-        } => nestedloopjoin(catalog, left, right, left_table, right_table, on),
+            kind,
+        } => nestedloopjoin(catalog, left, right, left_table, right_table, on, kind),
     }
 }
 
