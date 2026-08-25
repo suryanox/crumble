@@ -1,6 +1,7 @@
 use crate::interpret::create::{create, create_index};
 use crate::interpret::delete::delete;
 use crate::interpret::filter::filter;
+use crate::interpret::indexnestedloopjoin::indexnestedloopjoin;
 use crate::interpret::indexscan::{indexscan, rangeindexscan};
 use crate::interpret::insert::insert;
 use crate::interpret::nestedloopjoin::nestedloopjoin;
@@ -19,6 +20,7 @@ mod seqscan;
 
 mod create;
 mod delete;
+mod indexnestedloopjoin;
 mod indexscan;
 mod insert;
 mod nestedloopjoin;
@@ -65,6 +67,24 @@ pub fn execute(plan: &PhysicalPlan, catalog: &mut Catalog) -> Result<RowSet, Exe
             on,
             kind,
         } => nestedloopjoin(catalog, left, right, left_table, right_table, on, kind),
+        PhysicalPlan::IndexNestedLoopJoin {
+            left,
+            left_table,
+            right_table_real,
+            right_table_qualifier,
+            right_index_name,
+            left_join_column,
+            kind,
+        } => indexnestedloopjoin(
+            catalog,
+            left,
+            left_table,
+            right_table_real,
+            right_table_qualifier,
+            right_index_name,
+            left_join_column,
+            kind,
+        ),
     }
 }
 

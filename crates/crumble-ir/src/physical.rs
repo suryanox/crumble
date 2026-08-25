@@ -61,4 +61,13 @@ pub enum PhysicalPlan {
         on: Expr,
         kind: JoinKind,
     },
+    IndexNestedLoopJoin {
+        left: Box<PhysicalPlan>,
+        left_table: String,
+        right_table_real: String,
+        right_table_qualifier: String,
+        right_index_name: String,
+        left_join_column: String,
+        kind: JoinKind,
+    },
 }

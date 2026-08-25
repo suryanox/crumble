@@ -1,4 +1,4 @@
-use crumble_ir::{BinaryOperator, Expr, Literal, PhysicalPlan};
+use crumble_ir::{BinaryOperator, Expr, JoinKind, Literal, PhysicalPlan};
 use crumble_storage::Catalog;
 
 pub fn plan_index_scans(plan: PhysicalPlan, catalog: &Catalog) -> PhysicalPlan {
@@ -19,8 +19,91 @@ pub fn plan_index_scans(plan: PhysicalPlan, catalog: &Catalog) -> PhysicalPlan {
             input: Box::new(plan_index_scans(*input, catalog)),
             columns,
         },
+        PhysicalPlan::NestedLoopJoin {
+            left,
+            right,
+            left_table,
+            right_table,
+            on,
+            kind,
+        } => {
+            let left = plan_index_scans(*left, catalog);
+
+            if matches!(kind, JoinKind::Inner | JoinKind::Left) {
+                if let PhysicalPlan::SeqScan { table: right_real } = right.as_ref() {
+                    if let Some(rewrite) = try_index_join(
+                        &left,
+                        &left_table,
+                        &right_table,
+                        right_real,
+                        &on,
+                        &kind,
+                        catalog,
+                    ) {
+                        return rewrite;
+                    }
+                }
+            }
+
+            PhysicalPlan::NestedLoopJoin {
+                left: Box::new(left),
+                right: Box::new(plan_index_scans(*right, catalog)),
+                left_table,
+                right_table,
+                on,
+                kind,
+            }
+        }
         other => other,
     }
+}
+
+fn try_index_join(
+    left: &PhysicalPlan,
+    left_table: &str,
+    right_qualifier: &str,
+    right_real: &str,
+    on: &Expr,
+    kind: &JoinKind,
+    catalog: &Catalog,
+) -> Option<PhysicalPlan> {
+    let Expr::BinaryOp {
+        left: on_left,
+        op: BinaryOperator::Eq,
+        right: on_right,
+    } = on
+    else {
+        return None;
+    };
+
+    let (left_col, right_col) = match (on_left.as_ref(), on_right.as_ref()) {
+        (Expr::Column(l), Expr::Column(r)) if l.starts_with(&format!("{left_table}.")) => {
+            (l.clone(), strip_qualifier(r, right_qualifier)?)
+        }
+        (Expr::Column(l), Expr::Column(r)) if r.starts_with(&format!("{left_table}.")) => {
+            (r.clone(), strip_qualifier(l, right_qualifier)?)
+        }
+        _ => return None,
+    };
+
+    let index_name = catalog.index_for(right_real, &right_col)?;
+
+    Some(PhysicalPlan::IndexNestedLoopJoin {
+        left: Box::new(left.clone()),
+        left_table: left_table.to_string(),
+        right_table_real: right_real.to_string(),
+        right_table_qualifier: right_qualifier.to_string(),
+        right_index_name: index_name.to_string(),
+        left_join_column: left_col,
+        kind: kind.clone(),
+    })
+}
+
+fn strip_qualifier(qualified: &str, expected_qualifier: &str) -> Option<String> {
+    qualified
+        .strip_prefix(&format!("{expected_qualifier}."))?
+        .to_string()
+        .into()
 }
 
 fn try_rewrite(table: &str, predicate: &Expr, catalog: &Catalog) -> Option<PhysicalPlan> {
