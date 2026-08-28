@@ -1,242 +1,335 @@
-# tradeoffs.md — why we did things this way
+# tradeoffs.md — why i did things this way
 
-notes to self. not a spec, just the reasoning or someone reading code can learn.
+notes to self. not a spec, just the reasoning so I don't forget it later.
 
 ---
 
-## sqlparser vs writing our own parser
-not writing a SQL parser. that's a solved problem, zero learning value for a DB
-project specifically. using `sqlparser`, keep its AST as-is in crumble-sql. only
-rule: AST types don't leak past lowering (lower.rs).
+## sqlparser instead of writing our own parser
+not writing a SQL parser ourselves. that's a solved problem, zero learning
+value for a DB project specifically. use sqlparser, keep its AST as is in
+crumble-sql. one rule: AST types never leak past lowering. if crumble-ir or
+crumble-exec ever import sqlparser::ast directly, that's a bug.
 
-## why lower() is a free fn not a struct
-no state to carry between calls. struct with zero fields is just ceremony.
-if a schema/catalog needs to get threaded through later (for real type
-checking), that's when it becomes struct.
+## lower() is a free function not a struct
+no state to carry between calls. a struct with zero fields is just
+ceremony. if a schema or catalog ever needs threading through, that's when
+it becomes a real struct with a field. not before.
 
-## Scan/Filter/Project as separate tree nodes
-mirrors how the query actually gets processed conceptually: get rows, keep
-some, pick columns.
+## Scan, Filter, Project as separate tree nodes
+mirrors how a query actually gets processed: get rows, keep some, pick
+columns. recursive tree, so Box is needed or the enum has no fixed size.
 
-## logical IR vs physical IR? why two types that currently look identical
-Scan(logical) -> SeqScan(physical) is the only physical strategy we have, so
-right now they're basically the same shape. doesn't matter. the split exists
-so that when IndexScan shows up, only `to_physical.rs` changes — optimizer and
-everything upstream never finds out an index was used.
+## logical IR and physical IR are separate types even though they look the same right now
+Scan becomes SeqScan, the only physical strategy that exists at first, so
+they're basically identical shapes. doesn't matter. the split is what lets
+IndexScan get added later without touching the optimizer or anything
+upstream of it.
 
-## constant fold before pushdown
-pushdown (move Filter closer to Scan) is a no-op with one table. Filter is
-already directly above Scan, nothing to push past. would've been writing code
-against a tree shape that can't exist yet. wait for joins.
+## constant fold before predicate pushdown
+pushdown moves Filter closer to Scan, but with one table Filter is already
+directly above Scan — nothing to push past. would've been writing code
+against a tree shape that couldn't exist yet. wait for joins.
 
 ## fold returns Option not Result
-a pass should never be able to fail. worst case: don't fold, leave the expr
-alone. Result would imply optimization can break a valid query, which is wrong.
+a pass should never be able to fail. worst case: don't fold, leave it
+alone. Result would imply optimization can break a valid query, wrong.
+
+## no Visitor trait, just match
+match on an enum already is a visitor, compiler checked, exhaustive. only
+worth a Fold trait once a second thing walks the same type the same way.
+fold_plan walks LogicalPlan, execute walks PhysicalPlan — different types,
+no real duplication, no trait needed yet.
 
 ---
 
-## Row is a struct not bare Vec<Value>
-because MVCC. row will need a row-id + version fields at some point.
-wrap it in one place Row instead of hunting down every Vec<Value> call
-site later when that day comes.
+## Row is a struct not a bare Vec of Value
+because MVCC needs a row id and version fields eventually. wrap it now in
+one place instead of hunting down every call site later.
 
-## slot_count / free_space_offset live INSIDE the page bytes
-first version had them as separate Rust struct fields next to a
-[u8; PAGE_SIZE] — wrong, caught it myself. a page has to serialize to disk as
-literally just those bytes. if the header lives outside the array, there's
-nothing to write to disk that reconstructs slot_count after a restart. moved
-both into bytes[0..4].
+## slot_count and free_space_offset live inside the page bytes, not next to them
+first version had them as separate struct fields sitting beside a raw byte
+array — wrong, caught it myself. a page has to serialize to disk as
+literally just those bytes. if the header lives outside the array there's
+nothing on disk to reconstruct it from after a restart.
 
-## why u16 for slot_count/free_space_offset, not usize
-PAGE_SIZE is 4096, fits in u16 (max 65535). usize is 8 bytes on 64-bit,
-u16 is 2. smaller header = more room for actual data. also usize would let
-an offset be "bigger than the page," which is nonsense. the type itself
-should rule that out.
+## u16 for page offsets, not usize
+PAGE_SIZE is 4096, fits in two bytes. usize is eight bytes on a 64 bit
+machine — smaller header, more room for actual data. also usize would let
+an offset be bigger than the page, which is nonsense. the type should rule
+that out on its own.
 
-## slotted page layout.. slots grow forward, rows grow backward
-slot directory starts right after the header, grows toward the end of the
-page as rows get added. row bytes get written starting from the END of the
-page, growing backward. they meet somewhere in the middle/ that gap is free
-space. lets you insert/delete without shifting existing row bytes around.
+## slotted page layout, slots grow forward, rows grow backward
+slot directory starts right after the header and grows toward the end of
+the page. row bytes get written starting from the end, growing backward.
+they meet in the middle — that gap is free space. lets you delete a row
+without shifting every other row's bytes.
 
-## heap file addressing: page N at byte offset N * PAGE_SIZE
-no lookup table needed. pages never move once allocated, so it's just
-arithmetic. simplest possible thing that works.
+## HEADER_SIZE and SLOT_SIZE as named constants, not hardcoded numbers
+paid off the moment the tombstone flag got added, slot size going from four
+bytes to five. every offset calculation that referenced the constant just
+worked. only had to touch the lines that needed the new byte.
 
-## sync_data() after every page write (later removed, see buffer pool)
-fsync forces the OS to actually commit to disk instead of leaving it in page
-cache. without it "written" doesn't mean "safe from a crash." this was the
-correct-but-slow baseline before write-back existed.
+## bincode pinned to exactly 2.0.1
+real bincode is dead, the maintainer had a harassment situation and
+stopped. version 3.0.0 on crates.io is not real code, it's a deliberate
+tombstone that fails to compile on purpose so nobody accidentally depends
+on abandoned code. 2.0.1 is the last real release, pinned exact since there
+will never be a real 2.0.2.
 
----
+## heap file addressing, page N at byte offset N times PAGE_SIZE
+no lookup table needed. pages never move once written, so it's pure
+arithmetic. simplest thing that works.
 
-## crumble-buffer is its own crate, not part of crumble-storage
-tried to keep Page/PageStore inside crumble-storage and just have Table use
-a BufferPool from a new crate. doesn't work — Table needs BufferPool
-(storage -> buffer) but BufferPool needs Page (buffer -> storage). cycle.
-cargo won't build it. moved Page/PageStore OUT of storage, into buffer.
-one direction only now.
-
-## write-through first, write-back after WAL existed
-write-back (cache dirty, flush later) is only safe once something can
-recover an unflushed write after a crash. that's literally the WAL's job.
-built write-through first (correct, slow, syncs every write) as the honest
-baseline, upgraded once WAL was there to lean on.
-
-## LRU eviction MUST flush a dirty page before dropping it
-this is the one line that's the entire difference between "cache" and
-"silently deletes your data." easy to forget since dropping a HashMap entry
-looks harmless.
+## truncate false when opening the page file
+almost used truncate true, the common default. that wipes the file to zero
+bytes on every open — would've deleted everything on every restart. one
+flag, huge consequence, no warning if you get it wrong.
 
 ---
 
-## crumble-wal doesn't depend on crumble-storage
-first version: WalRecord::Insert held a crumble_storage::Row directly.
-broke same as the buffer pool — storage needs wal (Table uses WalWriter),
-wal needed storage (for Row type). cycle again. fixed by logging raw
-Vec<u8> instead. Table encodes Row->bytes itself before logging.
-wal shouldn't know what a Row even is.
+## crumble-buffer is its own crate, not folded into crumble-storage
+tried keeping Page and PageStore inside storage and having Table pull in a
+BufferPool from a new crate. doesn't compile — Table needs BufferPool so
+storage depends on buffer, but BufferPool needs Page so buffer depends on
+storage. a cycle. moved Page and PageStore out of storage entirely, into
+buffer. one direction only now.
+
+## write through first, write back only after WAL existed
+write back means cache dirty pages, flush later. only safe once something
+can recover an unflushed write after a crash — that's the WAL's whole job.
+built write through first as the honest, slower, correct baseline, upgraded
+once WAL was there to lean on.
+
+## LRU eviction has to flush a dirty page before dropping it
+this one line is the entire difference between a cache and something that
+silently deletes your data. easy to forget since dropping a hashmap entry
+looks completely harmless.
+
+---
+
+## crumble-wal does not depend on crumble-storage
+first version logged a real Row directly. broke the same way the buffer
+pool did — storage needs wal for Table to use WalWriter, wal needed storage
+for the Row type. another cycle. fixed by logging raw bytes instead. Table
+encodes Row to bytes itself before handing it to the log.
 
 ## WAL logs physical writes, not SQL statements
-redo log, not statement log. record = "insert these exact bytes on this
-exact page." replay is dumb — no re-parsing, re-planning, re-lowering SQL
-on recovery. simpler, and matches what actually needs to be durable.
+a redo log, not a statement log. a record says insert these exact bytes on
+this exact page. replay is dumb on purpose — no re-parsing, no re-planning,
+just mechanical reapplication.
 
-## length-prefix on every WAL record
-without it: if a crash happens mid-write of a record, replay has no way to
-know where a torn/half-written record ends and garbage starts. length
-written first means replay can detect "not enough bytes here, stop" instead
-of misreading garbage as the next record.
+## length prefix on every WAL record
+without it, a crash mid write leaves a torn record and replay has no way to
+tell where it ends and garbage begins. writing the length first means
+replay can detect not enough bytes here, stop — instead of misreading
+garbage as the next record.
 
-## fsync BEFORE append() returns, not after
-this is the actual point of a WAL. append() only returns Ok once the write
-is physically durable. whoever calls it (Table::insert) MUST wait for that
-Ok before touching anything else — that ordering is what makes "log before
-apply" mean anything.
+## fsync before append returns, not after
+this is the actual point of a WAL. append only returns once the write is
+physically durable. whoever calls it has to wait for that before touching
+anything else, or the ordering guarantee means nothing.
 
-## LSN = byte offset in the file before writing the record
-free — file is append-only, so "how many bytes exist before this write" is
-naturally unique and always increasing. no counter to maintain separately.
+## LSN is just the byte offset in the file before the write
+free, since the file only ever grows. no separate counter to maintain.
 
-## page_lsn stamped in the page header — the annoying bug this fixes
-buffer pool can flush a page on its own via LRU eviction, independent of any
-explicit checkpoint. so by the time of a crash, SOME pages might already be
-durably on disk even though their WAL records are still sitting in the log.
-blind full replay would reinsert those rows AGAIN — duplicate data. fix:
-stamp the LSN into the page itself on every write (same atomic disk write).
-on replay, if page's stamped LSN >= record's LSN, skip — it's already there.
-found this by literally asking "wait what if eviction flushes mid-crash" —
-worth remembering to always ask that about anything that flushes
-independently of the "planned" checkpoint path.
+## page_lsn stamped into the page header, and why
+buffer pool can flush a page on its own through eviction, independent of
+any checkpoint. so by the time of a crash some pages might already be
+durable while their WAL records are still sitting in the log. blind full
+replay would reinsert those rows again. fix: stamp the LSN into the page
+itself on the same write. on replay, if the page's stamped LSN is already
+at or past a record's LSN, skip it. found this by asking what if eviction
+flushes mid crash — worth remembering to ask that about anything that
+flushes independently of the planned checkpoint path.
+
+## the index gets its own WAL too, same discipline
+BTree writes through a buffer pool exactly like Table does, so it needed
+the same durability story or it would've been the one part of the system
+that lied about being crash safe. difference from Table's WAL: every BTree
+write replaces a whole page's contents (splits, rewritten leaves), never a
+single row insert, so the record type is the raw new page bytes, not an
+incremental row. everything else — length prefix, fsync before return, LSN
+stamping, replay skipping already durable pages — is identical.
 
 ---
 
-## CREATE TABLE stores column names only, no types
-no type system exists. Value is decided by what actually gets inserted, not
-declared ahead of time. `age INT` gets parsed but the INT part is thrown
-away right now. real gap, not fixed yet.
+## catalog stores column names only, at first, no types
+no type system existed yet. Value was decided by whatever got inserted, not
+declared ahead of time. fixed later — see typed schema below.
 
 ## catalog.json uses serde_json, not bincode
-different job than pages/WAL. tiny, written rarely (only on CREATE TABLE),
-and being able to `cat` it while debugging is actually useful. not every
-file needs to be binary just because pages are.
+different job than pages and WAL. small, written rarely, worth being
+readable while debugging. not every file has to be binary just because
+pages are.
 
-## catalog didn't persist schema at first — real bug I hit
-created a table, inserted rows, restarted the REPL, SELECT said "table not
-found" even though the .tbl/.wal files were sitting right there on disk.
-Catalog::open just built an empty HashMap every time — never scanned for
-existing tables. data was durable, the FACT that the table existed wasn't.
-fixed by adding catalog.json (name -> columns) + reopening every known
-table (each running its own WAL replay) on Catalog::open.
+## catalog didn't persist schema at first, a real bug I hit
+created a table, inserted rows, restarted, select said table not found even
+though the files were sitting right there on disk. Catalog::open just built
+an empty map every time, never scanned for existing tables. the data was
+durable, the fact that the table existed wasn't. fixed by adding
+catalog.json and reopening every known table on startup.
 
 ---
 
-## DELETE uses a tombstone bit, not real byte removal
-pages are append-only — insert_row only ever writes forward from the free
-space boundary. nothing physically removes bytes. added a 5th byte per slot
-(0=dead, 1=live). get_row checks it, returns None for dead slots. actual
-space reclaim (compaction) — not built, deliberately, that's a separate
-future problem.
+## DELETE uses a tombstone bit, not real removal
+pages are append only, nothing physically removes bytes. added a live flag
+per slot. get_row checks it, skips dead slots. actual space reclaim is a
+separate, unbuilt problem.
 
-## UPDATE = delete + insert, not in-place mutation
-in-place would mean handling "new value is bigger than old value, doesn't
-fit in the same slot" — real complexity. delete+insert reuses two paths that
-are ALREADY proven crash-safe (full WAL/LSN coverage) for free. tradeoff:
-costs 2 WAL records instead of 1 per update. fine for now.
+## UPDATE is delete plus insert, not in place mutation
+in place would mean handling a new value that doesn't fit the old slot's
+size — real complexity. delete plus insert reuses two paths that are
+already proven crash safe, for free. cost: two WAL records instead of one
+per update. acceptable.
 
 ## SET only takes literals, not expressions
-`age = 41` works, `age = age + 1` doesn't yet. same reasoning as INSERT
-VALUES only taking literals — real expression eval in SET is its own
-feature, not squeezing it in here.
+age equals 41 works, age equals age plus 1 doesn't yet. same reasoning as
+insert values only taking literals.
 
 ---
 
-## indexing: secondary, not clustered — real reason, not just "easier"
-clustered = rows physically stored in key order = insert has to find sorted
-position + maybe split pages. that's not additive, it's a different Table
-core entirely — and it would invalidate the WAL/LSN crash-recovery proof,
-which was built and TESTED against "pages are an append-only heap." secondary
-index = new structure that points at existing (page,slot) locations,
-Table doesn't change at all. clustered stays on the roadmap as its own
-future milestone, not something to sneak in as part of "adding an index."
+## indexing is secondary, not clustered, and that's a real reason not just easier
+clustered means rows physically live in key order, which means insert has
+to find a sorted position and maybe split pages — not additive, a different
+Table core entirely, and it would invalidate the whole WAL and LSN crash
+recovery proof already built and tested against an append only heap.
+secondary index is just a structure pointing at existing locations, Table
+never changes. clustered storage stays a real, separate, future milestone.
 
-## B+tree not plain B-tree
-only leaves hold real data (key -> row location). internal nodes hold only
-routing keys + child pointers, no data. standard shape — postgres/innodb/
-sqlite all do this. not a simplification, it's the actual normal design.
+## B+tree, not a plain B-tree
+only leaf pages hold real data, key to row location. internal pages hold
+only routing keys and child pointers, no data. this is the standard shape,
+postgres, innodb, sqlite all do this. not a simplification, the normal
+design.
 
-## index keys: only Int and String for now
-Float excluded — NaN breaks total ordering, can't cleanly impl Ord. Bool
-excluded — 2 distinct values, indexing it is basically useless.
+## index keys limited to Int and String at first, later Null too
+Float excluded, NaN breaks total ordering, can't cleanly implement Ord.
+Bool excluded, only two distinct values, not worth indexing.
 
-## index nodes reuse crumble_buffer::Page directly
-didn't invent a new byte format. Page is already "container of variable-
-length byte blobs with slot indirection" which is exactly what a B+tree node
-needs. crumble-index depends on crumble-buffer only — NOT crumble-storage,
-same cycle-avoidance as the buffer pool split.
+## index nodes reuse crumble_buffer's Page directly
+didn't invent a new byte format. Page is already a container of variable
+length byte blobs with slot indirection, exactly what a tree node needs.
+crumble-index depends on crumble-buffer only, not crumble-storage, same
+cycle avoidance as the buffer pool split.
 
-## int/float width variants (SMALLINT, BIGINT, FLOAT4/8) — not doing this yet
-Value::Int is always i64, Value::Float always f64, regardless of what SQL
-declares. Real fixed-width support would mean new Value variants per width,
-which ripples through basically every crate (eval, ColumnType::matches, page
-encoding, IndexKey, WAL records) for a benefit (storage byte efficiency) that
-only matters once we're actually measuring storage size/perf at scale — not
-yet. Silently aliasing SMALLINT/BIGINT to the same i64 would be worse than
-not supporting them claims to respect a declared width while secretly
-ignoring it, exactly what typed-schema was built to prevent. NULL support is
-the more honestly urgent gap no column can be absent a value at all right
-now.
+## leaf pages are linked, real B+tree range scans
+without a pointer from one leaf to the next, answering something like age
+greater than 30 means re descending from the root every time you cross a
+leaf boundary. added a next_leaf pointer to every leaf's header, wired up
+correctly on every split. find the starting leaf once, then just walk
+forward. this is the actual textbook reason B+trees exist over plain
+B-trees.
 
-## NULL  three-valued logic, not a shortcut
-Value::Null is a real variant, not a sentinel or Option<Value> wrapper.
-comparisons (=, <, >, etc.) against a null operand always produce Null, not
-Bool — matches real SQL, including the classic gotcha that `col = NULL`
-always returns zero rows (use `IS NULL` instead). AND/OR use real
-three-valued truth tables: `false AND NULL` is `false`, not `NULL`, since
-false already determines the outcome regardless of the unknown side.
-IndexKey::Null appended LAST in the enum on purpose — derived Ord makes
-nulls sort after every real value for free (Postgres convention), which
-also means `IS NOT NULL` reduces to a plain range_search(upper: Null,
-exclusive) and `IS NULL` reduces to a plain search(Null) — no new B+tree
-operation needed, both reuse already-tested code. Planner explicitly
-refuses to rewrite `col = NULL` / range comparisons against NULL into an
-index scan — always routes through Filter's three-valued check instead,
-since an index lookup would answer "what's stored under key NULL" which is
-a different question from "is this unknown," and rewriting it wrong would
-silently violate the very semantics just built.
+## index maintenance lives in the executor, not in Table, postgres style
+Table stays completely ignorant that indexes exist, same as a heap access
+method never knowing about pg_index. the executor calls insert, gets back
+where the row landed, then separately checks if an index covers that column
+and updates it. Table::insert had to start returning the page and slot it
+used instead of throwing that away, purely so the executor could pass it on.
 
-## index nested loop join — INNER/LEFT only, not RIGHT/FULL OUTER
-mirrors IndexScan's whole approach: recognize an exact plan shape
-(NestedLoopJoin with a plain SeqScan on the right, equality ON predicate,
-matching index on the right column), rewrite to a lookup-based join instead
-of a full scan per left row. RIGHT/FULL OUTER excluded on purpose — index
-lookups only tell you "found" or "not found" per probe, never "which keys
-were never probed at all," so detecting unmatched rows on the INDEXED side
-needs a seen-set tracking every key looked up — real extra state, not a
-smaller version of the same idea. left as nested loop (correct, unaccelerated)
-until that's built as its own increment.
-right_table split into right_table_real (catalog/index lookups) vs
-right_table_qualifier (output column naming) — same real/qualifier split as
-table aliasing, needed here because Join's left_table/right_table fields
-already hold the QUALIFIER, and the real name only exists on the SeqScan
-node underneath, so the rewrite has to reach into the child plan for it.
+---
+
+## typed schema, ColumnDef properly instead of a parallel type list
+could have kept columns as a plain list of names and added a second parallel
+list of types next to it. rejected — two lists that must always agree but
+aren't enforced by the type system is exactly the bug class that already
+bit this project more than once, page_count as both a field and a stale
+method, a forgotten match arm, a shadowed variable. ColumnDef makes name and
+type structurally one entry, can't drift apart. one time ripple cost across
+call sites, beats a standing risk that compounds with every future change.
+
+## crumble-ir and crumble-storage each define their own ColumnType, not shared
+same reasoning as Literal versus Value already being two separate types.
+translated at the exec boundary, same spot literal_to_value already lives.
+
+## Float got added to ColumnType only after it broke a test
+missed it the first time, only had Int, Bool, String. a test using a
+Float column caught the gap immediately. good reminder that adding an enum
+variant means checking every exhaustive match downstream, this has now
+happened enough times in this project that it's basically expected.
+
+## no fixed width int or float types like smallint or bigint
+Value::Int is always i64, Value::Float always f64, no matter what SQL says.
+real width support means new Value variants per width, rippling through
+basically every crate, for a benefit that only matters once storage size is
+actually being measured. silently aliasing smallint to the same i64 would
+be worse than not supporting it, claims to respect a width while secretly
+ignoring it. NULL was the more honest gap to close first.
+
+---
+
+## NULL is a real Value variant, not an Option wrapper or a sentinel
+comparisons against a null operand always produce Null, not Bool, matching
+real SQL, including the classic trap that col equals NULL always returns
+zero rows — use IS NULL instead. AND and OR use real three valued truth
+tables, false AND NULL is false, not NULL, because false already decides
+the outcome no matter what the unknown side is.
+
+## IndexKey::Null appended last in the enum on purpose
+derived Ord orders by declaration position first, so putting Null last
+makes every null sort after every real value for free, matching postgres.
+that single ordering choice means IS NOT NULL reduces to a plain range scan
+with an exclusive upper bound of Null, and IS NULL reduces to a plain
+equality search for Null. no new tree operation needed for either, both
+reuse already tested code.
+
+## the planner refuses to rewrite col equals NULL into an index scan
+even though NULL can be converted into an IndexKey now and could
+technically be looked up, doing so would answer what's stored under the key
+Null, which is a different question from is this unknown. rewriting it that
+way would silently violate the three valued logic just built. always falls
+through to Filter's null aware check instead.
+
+---
+
+## JOIN, inner only at first, nested loop, columns always qualified after a join
+LEFT, RIGHT, FULL OUTER weren't built until NULL existed, since an outer
+join is really just padding unmatched rows with NULL. nested loop, scan the
+right side fully per left row, chosen as the honest correct baseline first,
+same reasoning as SeqScan before IndexScan.
+
+only one join supported, two tables, not chained three way joins.
+qualifying columns as table dot column only works cleanly when both join
+sides are plain scans. a three way join's outer join has another join as
+its left side, which needs real column provenance tracking through nested
+joins. solvable, just its own separate increment, not done.
+
+column ambiguity solved by always qualifying every column after a join,
+users.id, orders.id, instead of building real SQL name resolution where an
+unqualified name has to resolve unambiguously or error. sidesteps a whole
+subsystem on purpose.
+
+table aliases needed their own real fix. TableFactor::Table carries an
+alias field that was originally just thrown away. fixed by tracking two
+separate strings per side of a join, the real table name for actually
+reading data, and a qualifier, the alias if one exists otherwise the real
+name, used everywhere columns get labeled. Scan always uses the real name,
+Join's left_table and right_table fields always use the qualifier. the
+whole thing composes correctly with zero new lookup logic anywhere else,
+because a qualified column like u.id just lowers to a plain string with a
+dot in it, and RowSet gets built using that same string. as long as both
+sides agree on which string to use, it just matches.
+
+## join stayed unaccelerated by any index for a while, a real gap, later closed
+the optimizer rewrite that turns Filter over SeqScan into IndexScan never
+looked inside a Join at all, confirmed by testing it directly, an index on
+the join column sat there completely unused. fixed with index nested loop
+join: for each row on the probing side, look the join key up in the index
+instead of scanning the whole other table. O(n log m) instead of O(n
+times m).
+
+started scoped to INNER and LEFT only, because an index lookup only tells
+you found or not found per probe, never which keys were never probed at
+all, which is exactly what detecting unmatched rows on the indexed side for
+RIGHT or FULL OUTER needs. fixed properly rather than left as a gap: track
+every matched page and slot on the right side in a set during the probing
+loop, then, only when the join kind actually needs it, one full scan of the
+right table afterward to find whatever wasn't in the set. still O(n log m)
+for the probing plus O(m) once for the unmatched check, not O(n times m),
+so it stays a real win even for RIGHT and FULL OUTER now.
+
+right_table had to split into two fields for this, same real name versus
+qualifier split as aliasing, because the rewrite needs the real table name
+to actually query the catalog and the index, but the qualifier for naming
+output columns, and by the time the rewrite runs those two things already
+live in different places in the plan tree.
