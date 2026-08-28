@@ -29,7 +29,10 @@ pub fn plan_index_scans(plan: PhysicalPlan, catalog: &Catalog) -> PhysicalPlan {
         } => {
             let left = plan_index_scans(*left, catalog);
 
-            if matches!(kind, JoinKind::Inner | JoinKind::Left) {
+            if matches!(
+                kind,
+                JoinKind::Inner | JoinKind::Left | JoinKind::Right | JoinKind::FullOuter
+            ) {
                 if let PhysicalPlan::SeqScan { table: right_real } = right.as_ref() {
                     if let Some(rewrite) = try_index_join(
                         &left,

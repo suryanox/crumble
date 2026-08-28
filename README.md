@@ -58,7 +58,8 @@ Documentation, specifications, research papers, books, and existing implementati
 - [x] DELETE
 - [x] CREATE TABLE
 - [x] table aliases (JOIN and single-table, including mixed aliased/unaliased sides)
-- [x] JOIN (INNER, LEFT, RIGHT, FULL OUTER — nested loop algorithm, qualified table.column naming)
+- [x] JOIN (INNER, LEFT, RIGHT, FULL OUTER — nested loop baseline; INNER/LEFT accelerated via index nested loop join when an index exists on the join column)
+- [ ] index-accelerated RIGHT/FULL OUTER join (needs seen-set tracking on the indexed side, not just lookups)
 - [ ] subqueries
 - [ ] aggregates (COUNT/SUM/GROUP BY etc)
 

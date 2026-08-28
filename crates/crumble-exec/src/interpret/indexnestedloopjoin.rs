@@ -1,6 +1,11 @@
-use crate::{ExecError, RowSet, execute};
+use std::collections::HashSet;
+
 use crumble_ir::{JoinKind, PhysicalPlan};
 use crumble_storage::{Catalog, Row, Value, value_to_index_key};
+
+use crate::error::ExecError;
+use crate::execute;
+use crate::row_set::RowSet;
 
 pub(super) fn indexnestedloopjoin(
     catalog: &mut Catalog,
@@ -24,8 +29,8 @@ pub(super) fn indexnestedloopjoin(
         .iter()
         .map(|c| c.name.clone())
         .collect();
-
     let right_width = right_columns.len();
+    let left_width = left_result.columns().len();
 
     let qualified_columns: Vec<String> = left_result
         .columns()
@@ -37,6 +42,9 @@ pub(super) fn indexnestedloopjoin(
                 .map(|c| format!("{right_table_qualifier}.{c}")),
         )
         .collect();
+
+    let needs_right_unmatched = matches!(kind, JoinKind::Right | JoinKind::FullOuter);
+    let mut matched_right_locations: HashSet<(u32, u16)> = HashSet::new();
 
     let mut output_rows = Vec::new();
 
@@ -56,13 +64,29 @@ pub(super) fn indexnestedloopjoin(
                 combined_values.extend(right_row.values().iter().cloned());
                 output_rows.push(Row::new(combined_values));
                 matched_any = true;
+
+                if needs_right_unmatched {
+                    matched_right_locations.insert((page_index, slot));
+                }
             }
         }
 
-        if !matched_any && *kind == JoinKind::Left {
+        if !matched_any && matches!(kind, JoinKind::Left | JoinKind::FullOuter) {
             let mut padded_values = left_row.values().to_vec();
             padded_values.extend(std::iter::repeat(Value::Null).take(right_width));
             output_rows.push(Row::new(padded_values));
+        }
+    }
+
+    if needs_right_unmatched {
+        let right_table = catalog.get_mut(right_table_real)?;
+        for ((page_index, slot), right_row) in right_table.rows_with_location()? {
+            if !matched_right_locations.contains(&(page_index, slot)) {
+                let mut padded_values: Vec<Value> =
+                    std::iter::repeat(Value::Null).take(left_width).collect();
+                padded_values.extend(right_row.values().iter().cloned());
+                output_rows.push(Row::new(padded_values));
+            }
         }
     }
 

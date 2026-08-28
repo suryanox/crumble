@@ -224,3 +224,19 @@ index scan — always routes through Filter's three-valued check instead,
 since an index lookup would answer "what's stored under key NULL" which is
 a different question from "is this unknown," and rewriting it wrong would
 silently violate the very semantics just built.
+
+## index nested loop join — INNER/LEFT only, not RIGHT/FULL OUTER
+mirrors IndexScan's whole approach: recognize an exact plan shape
+(NestedLoopJoin with a plain SeqScan on the right, equality ON predicate,
+matching index on the right column), rewrite to a lookup-based join instead
+of a full scan per left row. RIGHT/FULL OUTER excluded on purpose — index
+lookups only tell you "found" or "not found" per probe, never "which keys
+were never probed at all," so detecting unmatched rows on the INDEXED side
+needs a seen-set tracking every key looked up — real extra state, not a
+smaller version of the same idea. left as nested loop (correct, unaccelerated)
+until that's built as its own increment.
+right_table split into right_table_real (catalog/index lookups) vs
+right_table_qualifier (output column naming) — same real/qualifier split as
+table aliasing, needed here because Join's left_table/right_table fields
+already hold the QUALIFIER, and the real name only exists on the SeqScan
+node underneath, so the rewrite has to reach into the child plan for it.
