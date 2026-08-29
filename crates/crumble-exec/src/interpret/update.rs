@@ -14,10 +14,13 @@ pub(super) fn update(
     xid: TransactionId,
 ) -> Result<RowSet, ExecError> {
     let target_handle = catalog.table(table)?;
-    let mut target = target_handle.lock().unwrap();
 
-    let located_rows = target.rows_with_location(xid)?;
-    let columns: Vec<String> = target.columns().iter().map(|c| c.name.clone()).collect();
+    let (columns, located_rows) = {
+        let mut target = target_handle.lock().unwrap();
+        let located_rows = target.rows_with_location(xid)?;
+        let columns: Vec<String> = target.columns().iter().map(|c| c.name.clone()).collect();
+        (columns, located_rows)
+    }; // physical lock released here
 
     let mut changed = Vec::new();
 
@@ -39,8 +42,11 @@ pub(super) fn update(
             values[index] = literal_to_value(literal);
         }
 
-        target.delete_at(page_index, slot, xid)?;
-        let (new_page_index, new_slot) = target.insert(Row::new(values.clone()), xid)?;
+        crumble_storage::delete_at(&target_handle, page_index, slot, xid)?;
+        let (new_page_index, new_slot) = {
+            let mut target = target_handle.lock().unwrap();
+            target.insert(Row::new(values.clone()), xid)?
+        };
 
         changed.push((
             page_index,
@@ -53,7 +59,6 @@ pub(super) fn update(
     }
 
     let updated = changed.len() as i64;
-    drop(target); // release the table lock before touching index locks below
 
     let indexed_columns: Vec<(usize, String)> = columns
         .iter()

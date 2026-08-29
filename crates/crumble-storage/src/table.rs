@@ -5,7 +5,7 @@ use crumble_buffer::BufferPool;
 use crumble_tx::{TransactionId, TransactionManager, TxStatus, is_visible};
 use crumble_wal::{WalRecord, WalWriter, read_all};
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 const BUFFER_CAPACITY: usize = 64;
 #[derive(Debug)]
@@ -198,45 +198,6 @@ impl Table {
         Ok(rows)
     }
 
-    pub fn delete_at(
-        &mut self,
-        page_index: u32,
-        slot: u16,
-        xid: TransactionId,
-    ) -> Result<(), StorageError> {
-        loop {
-            let page = self.pool.fetch_page(page_index)?;
-            let bytes = page.get_row(slot).ok_or(StorageError::RowNotFound)?; // reused error, see note below
-            let row = Row::from_bytes(bytes)?;
-
-            if let Some(other) = row.xmax {
-                if other != xid && self.tx_manager.status(other) == Some(TxStatus::InProgress) {
-                    self.tx_manager.wait_for(other); // blocks here until `other` finishes
-                    continue; // re-check the row's state fresh — this is the retry
-                }
-                if other != xid && self.tx_manager.status(other) == Some(TxStatus::Committed) {
-                    return Err(StorageError::ConcurrentModification);
-                }
-                // aborted, or already ours — fall through, safe to proceed
-            }
-
-            let mut updated_row = row;
-            updated_row.xmax = Some(xid);
-            let updated_bytes = updated_row.to_bytes()?;
-
-            let mut page = page;
-            page.delete_row(slot); // physical tombstone stays as-is for the page-scan path
-            let lsn = self.wal.append(&WalRecord::Insert {
-                table: self.name.clone(),
-                page_index,
-                row_bytes: updated_bytes,
-            })?;
-            page.set_page_lsn(lsn);
-            self.pool.write_page(page_index, &page)?;
-            return Ok(());
-        }
-    }
-
     fn apply_delete_at(
         &mut self,
         page_index: u32,
@@ -270,6 +231,58 @@ impl Table {
                 }
             }
             None => Ok(None),
+        }
+    }
+}
+
+pub fn delete_at(
+    table: &Arc<Mutex<Table>>,
+    page_index: u32,
+    slot: u16,
+    xid: TransactionId,
+) -> Result<(), StorageError> {
+    loop {
+        let conflict = {
+            let mut t = table.lock().unwrap();
+            let page = t.pool.fetch_page(page_index)?;
+            let bytes = page.get_row(slot).ok_or(StorageError::RowNotFound)?;
+            let row = Row::from_bytes(bytes)?;
+
+            match row.xmax {
+                Some(other)
+                    if other != xid && t.tx_manager.status(other) == Some(TxStatus::InProgress) =>
+                {
+                    Some(other) // signal: need to wait, outside the lock
+                }
+                Some(other)
+                    if other != xid && t.tx_manager.status(other) == Some(TxStatus::Committed) =>
+                {
+                    return Err(StorageError::ConcurrentModification);
+                }
+                _ => {
+                    let mut updated_row = row;
+                    updated_row.xmax = Some(xid);
+                    let updated_bytes = updated_row.to_bytes()?;
+
+                    let mut page = page;
+                    page.delete_row(slot);
+                    let table_name = t.name.clone();
+                    let lsn = t.wal.append(&WalRecord::Insert {
+                        table: table_name,
+                        page_index,
+                        row_bytes: updated_bytes,
+                    })?;
+                    page.set_page_lsn(lsn);
+                    t.pool.write_page(page_index, &page)?;
+                    return Ok(());
+                }
+            }
+        }; // <-- physical lock (`t`) is dropped here, at the end of this block
+
+        if let Some(other) = conflict {
+            let tx_manager = table.lock().unwrap().tx_manager.clone();
+            tx_manager.wait_for(other); // blocked here — table is NOT locked during this
+            // loop back around: re-lock, re-fetch, re-check from scratch
         }
     }
 }
@@ -321,18 +334,28 @@ mod tests {
 
         {
             let mut table = Table::open(
-                "users", vec![col("name", ColumnType::String)], dir.path(), Arc::clone(&tx_manager),
+                "users",
+                vec![col("name", ColumnType::String)],
+                dir.path(),
+                Arc::clone(&tx_manager),
             )?;
             table.insert(Row::new(vec![Value::String("alice".to_string())]), xid)?;
             table.insert(Row::new(vec![Value::String("bob".to_string())]), xid)?;
         }
 
         let mut recovered = Table::open(
-            "users", vec![col("name", ColumnType::String)], dir.path(), Arc::clone(&tx_manager),
+            "users",
+            vec![col("name", ColumnType::String)],
+            dir.path(),
+            Arc::clone(&tx_manager),
         )?;
         let rows = recovered.rows(xid)?;
 
-        assert_eq!(rows.len(), 2, "both writes should recover from the WAL alone");
+        assert_eq!(
+            rows.len(),
+            2,
+            "both writes should recover from the WAL alone"
+        );
         assert_eq!(rows[0].values(), &[Value::String("alice".to_string())]);
         assert_eq!(rows[1].values(), &[Value::String("bob".to_string())]);
 

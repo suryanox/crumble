@@ -1,5 +1,5 @@
 use crumble_ir::Expr;
-use crumble_storage::{Catalog, Row, Value, value_to_index_key};
+use crumble_storage::{Catalog, Row, Value, delete_at, value_to_index_key};
 use crumble_tx::TransactionId;
 
 use crate::error::ExecError;
@@ -13,10 +13,14 @@ pub(super) fn delete(
     xid: TransactionId,
 ) -> Result<RowSet, ExecError> {
     let target_handle = catalog.table(table)?;
-    let mut target = target_handle.lock().unwrap();
 
-    let located_rows = target.rows_with_location(xid)?;
-    let columns: Vec<String> = target.columns().iter().map(|c| c.name.clone()).collect();
+    let (columns, located_rows) = {
+        let mut target = target_handle.lock().unwrap();
+        let located_rows = target.rows_with_location(xid)?;
+        let columns: Vec<String> = target.columns().iter().map(|c| c.name.clone()).collect();
+        (columns, located_rows)
+    }; // physical lock released here — matching below touches no shared state
+
     let mut to_delete: Vec<(u32, u16, Row)> = Vec::new();
     for ((page_index, slot), row) in located_rows {
         let matches = match predicate {
@@ -29,10 +33,9 @@ pub(super) fn delete(
     }
 
     for (page_index, slot, _) in &to_delete {
-        target.delete_at(*page_index, *slot, xid)?;
+        delete_at(&target_handle, *page_index, *slot, xid)?;
     }
     let deleted = to_delete.len() as i64;
-    drop(target); // release the table lock before touching index locks below
 
     let indexed_columns: Vec<(usize, String)> = columns
         .iter()
