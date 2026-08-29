@@ -2,13 +2,15 @@ use crate::interpret::eval::eval_expr;
 use crate::{ExecError, RowSet, execute};
 use crumble_ir::{Expr, PhysicalPlan};
 use crumble_storage::{Catalog, Value};
+use crumble_tx::TransactionId;
 
 pub(super) fn filter(
-    catalog: &mut Catalog,
+    catalog: &Catalog,
     input: &Box<PhysicalPlan>,
     predicate: &Expr,
+    xid: TransactionId,
 ) -> Result<RowSet, ExecError> {
-    let input = execute(input, catalog)?;
+    let input = execute(input, catalog, xid)?;
     let mut kept = Vec::new();
 
     for row in input.rows() {

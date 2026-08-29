@@ -1,24 +1,28 @@
 use crumble_ir::Literal;
 use crumble_storage::{Catalog, Row};
+use crumble_tx::TransactionId;
 
 use crate::error::ExecError;
 use crate::row_set::RowSet;
 
 pub(super) fn indexscan(
-    catalog: &mut Catalog,
+    catalog: &Catalog,
     table: &str,
     index_name: &str,
     key: &Literal,
+    xid: TransactionId,
 ) -> Result<RowSet, ExecError> {
     let index_key = literal_to_index_key(key).ok_or(ExecError::TypeMismatch)?;
 
-    let locations = catalog.index_mut(index_name)?.search(&index_key)?;
+    let index_handle = catalog.index(index_name)?;
+    let locations = index_handle.lock().unwrap().search(&index_key)?;
 
-    let target = catalog.get_mut(table)?;
+    let target_handle = catalog.table(table)?;
+    let mut target = target_handle.lock().unwrap();
     let columns: Vec<String> = target.columns().iter().map(|c| c.name.clone()).collect();
     let mut rows: Vec<Row> = Vec::new();
     for (page_index, slot) in locations {
-        if let Some(row) = target.row_at(page_index, slot)? {
+        if let Some(row) = target.row_at(page_index, slot, xid)? {
             rows.push(row);
         }
     }
@@ -27,11 +31,12 @@ pub(super) fn indexscan(
 }
 
 pub(super) fn rangeindexscan(
-    catalog: &mut Catalog,
+    catalog: &Catalog,
     table: &str,
     index_name: &str,
     lower: &Option<(Literal, bool)>,
     upper: &Option<(Literal, bool)>,
+    xid: TransactionId,
 ) -> Result<RowSet, ExecError> {
     let lower_key = match lower {
         Some((lit, inc)) => {
@@ -48,16 +53,18 @@ pub(super) fn rangeindexscan(
         None => None,
     };
 
-    let locations = catalog.index_mut(index_name)?.range_search(
+    let index_handle = catalog.index(index_name)?;
+    let locations = index_handle.lock().unwrap().range_search(
         lower_key.as_ref().map(|(k, inc)| (k, *inc)),
         upper_key.as_ref().map(|(k, inc)| (k, *inc)),
     )?;
 
-    let target = catalog.get_mut(table)?;
+    let target_handle = catalog.table(table)?;
+    let mut target = target_handle.lock().unwrap();
     let columns: Vec<String> = target.columns().iter().map(|c| c.name.clone()).collect();
     let mut rows = Vec::new();
     for (page_index, slot) in locations {
-        if let Some(row) = target.row_at(page_index, slot)? {
+        if let Some(row) = target.row_at(page_index, slot, xid)? {
             rows.push(row);
         }
     }

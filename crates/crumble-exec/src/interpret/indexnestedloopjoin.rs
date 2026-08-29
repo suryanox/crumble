@@ -2,13 +2,14 @@ use std::collections::HashSet;
 
 use crumble_ir::{JoinKind, PhysicalPlan};
 use crumble_storage::{Catalog, Row, Value, value_to_index_key};
+use crumble_tx::TransactionId;
 
 use crate::error::ExecError;
 use crate::execute;
 use crate::row_set::RowSet;
 
 pub(super) fn indexnestedloopjoin(
-    catalog: &mut Catalog,
+    catalog: &Catalog,
     left: &Box<PhysicalPlan>,
     left_table: &str,
     right_table_real: &str,
@@ -16,15 +17,18 @@ pub(super) fn indexnestedloopjoin(
     right_index_name: &str,
     left_join_column: &str,
     kind: &JoinKind,
+    xid: TransactionId,
 ) -> Result<RowSet, ExecError> {
-    let left_result = execute(left, catalog)?;
+    let left_result = execute(left, catalog, xid)?;
 
     let probe_index = left_result
         .column_index(left_join_column)
         .ok_or_else(|| ExecError::ColumnNotFound(left_join_column.to_string()))?;
 
-    let right_columns: Vec<String> = catalog
-        .get(right_table_real)?
+    let right_table_handle = catalog.table(right_table_real)?;
+    let right_columns: Vec<String> = right_table_handle
+        .lock()
+        .unwrap()
         .columns()
         .iter()
         .map(|c| c.name.clone())
@@ -52,14 +56,18 @@ pub(super) fn indexnestedloopjoin(
         let probe_value = &left_row.values()[probe_index];
 
         let matches = match value_to_index_key(probe_value) {
-            Some(key) => catalog.index_mut(right_index_name)?.search(&key)?,
+            Some(key) => {
+                let index_handle = catalog.index(right_index_name)?;
+                index_handle.lock().unwrap().search(&key)?
+            }
             None => Vec::new(),
         };
 
         let mut matched_any = false;
         for (page_index, slot) in matches {
-            let right_table = catalog.get_mut(right_table_real)?;
-            if let Some(right_row) = right_table.row_at(page_index, slot)? {
+            let right_table_handle = catalog.table(right_table_real)?;
+            let mut right_table = right_table_handle.lock().unwrap();
+            if let Some(right_row) = right_table.row_at(page_index, slot, xid)? {
                 let mut combined_values = left_row.values().to_vec();
                 combined_values.extend(right_row.values().iter().cloned());
                 output_rows.push(Row::new(combined_values));
@@ -79,8 +87,9 @@ pub(super) fn indexnestedloopjoin(
     }
 
     if needs_right_unmatched {
-        let right_table = catalog.get_mut(right_table_real)?;
-        for ((page_index, slot), right_row) in right_table.rows_with_location()? {
+        let right_table_handle = catalog.table(right_table_real)?;
+        let mut right_table = right_table_handle.lock().unwrap();
+        for ((page_index, slot), right_row) in right_table.rows_with_location(xid)? {
             if !matched_right_locations.contains(&(page_index, slot)) {
                 let mut padded_values: Vec<Value> =
                     std::iter::repeat(Value::Null).take(left_width).collect();

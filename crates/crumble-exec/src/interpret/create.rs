@@ -4,7 +4,7 @@ use crumble_storage::Catalog;
 use crumble_storage::{ColumnDef as StorageColumnDef, ColumnType as StorageColumnType};
 
 pub(super) fn create(
-    catalog: &mut Catalog,
+    catalog: &Catalog,
     table: &str,
     columns: &[IrColumnDef],
 ) -> Result<RowSet, ExecError> {
@@ -27,7 +27,7 @@ pub(super) fn create(
 }
 
 pub(super) fn create_index(
-    catalog: &mut Catalog,
+    catalog: &Catalog,
     index_name: &str,
     table: &str,
     column: &str,

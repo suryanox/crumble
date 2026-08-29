@@ -1,16 +1,18 @@
-use std::io;
-use std::io::Write;
-use std::process::ExitCode;
-
 use crumble_exec::execute;
 use crumble_ir::{lower, to_physical};
 use crumble_opt::{ConstantFold, OptimizationPass};
 use crumble_planner::plan_index_scans;
 use crumble_sql::parse;
 use crumble_storage::{Catalog, Row, StorageError};
+use crumble_tx::TransactionManager;
+use std::io;
+use std::io::Write;
+use std::process::ExitCode;
+use std::sync::Arc;
 
 fn seeded_catalog() -> Result<Catalog, StorageError> {
-    Catalog::open("./crumble-data")
+    let tx_manager = Arc::new(TransactionManager::new());
+    Catalog::open("./crumble-data", tx_manager)
 }
 
 const RESET: &str = "\x1b[0m";
@@ -72,7 +74,7 @@ fn print_table(columns: &[String], rows: &[Row]) {
 }
 
 fn main() -> ExitCode {
-    let mut catalog = match seeded_catalog() {
+    let catalog = match seeded_catalog() {
         Ok(catalog) => catalog,
         Err(err) => {
             eprintln!("{RED}storage error:{RESET} {err}");
@@ -124,7 +126,16 @@ fn main() -> ExitCode {
         let physical = plan_index_scans(physical, &catalog);
 
         eprintln!("{:?}", physical);
-        match execute(&physical, &mut catalog) {
+        let xid = catalog.tx_manager.begin();
+
+        let result = execute(&physical, &catalog, xid);
+
+        match &result {
+            Ok(_) => catalog.tx_manager.commit(xid),
+            Err(_) => catalog.tx_manager.abort(xid),
+        }
+
+        match result {
             Ok(result) => print_table(result.columns(), result.rows()),
             Err(err) => eprintln!("{RED}execution error:{RESET} {err}"),
         }

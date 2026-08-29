@@ -11,6 +11,7 @@ use crate::interpret::update::update;
 use crate::{ExecError, RowSet};
 use crumble_ir::PhysicalPlan;
 use crumble_storage::Catalog;
+use crumble_tx::TransactionId;
 
 mod eval;
 mod filter;
@@ -26,23 +27,27 @@ mod insert;
 mod nestedloopjoin;
 mod update;
 
-pub fn execute(plan: &PhysicalPlan, catalog: &mut Catalog) -> Result<RowSet, ExecError> {
+pub fn execute(
+    plan: &PhysicalPlan,
+    catalog: &Catalog,
+    xid: TransactionId,
+) -> Result<RowSet, ExecError> {
     match plan {
-        PhysicalPlan::SeqScan { table } => seqscan(catalog, table),
-        PhysicalPlan::Filter { input, predicate } => filter(catalog, input, predicate),
-        PhysicalPlan::Project { input, columns } => project(catalog, input, columns),
+        PhysicalPlan::SeqScan { table } => seqscan(catalog, table, xid),
+        PhysicalPlan::Filter { input, predicate } => filter(catalog, input, predicate, xid),
+        PhysicalPlan::Project { input, columns } => project(catalog, input, columns, xid),
         PhysicalPlan::Insert {
             table,
             columns,
             rows,
-        } => insert(catalog, table, columns, rows),
+        } => insert(catalog, table, columns, rows, xid),
         PhysicalPlan::CreateTable { table, columns } => create(catalog, table, columns),
-        PhysicalPlan::Delete { table, predicate } => delete(catalog, table, predicate),
+        PhysicalPlan::Delete { table, predicate } => delete(catalog, table, predicate, xid),
         PhysicalPlan::Update {
             table,
             assignments,
             predicate,
-        } => update(catalog, table, assignments, predicate),
+        } => update(catalog, table, assignments, predicate, xid),
         PhysicalPlan::CreateIndex {
             index_name,
             table,
@@ -52,13 +57,13 @@ pub fn execute(plan: &PhysicalPlan, catalog: &mut Catalog) -> Result<RowSet, Exe
             table,
             index_name,
             key,
-        } => indexscan(catalog, table, index_name, key),
+        } => indexscan(catalog, table, index_name, key, xid),
         PhysicalPlan::RangeIndexScan {
             table,
             index_name,
             lower,
             upper,
-        } => rangeindexscan(catalog, table, index_name, lower, upper),
+        } => rangeindexscan(catalog, table, index_name, lower, upper, xid),
         PhysicalPlan::NestedLoopJoin {
             left,
             right,
@@ -66,7 +71,7 @@ pub fn execute(plan: &PhysicalPlan, catalog: &mut Catalog) -> Result<RowSet, Exe
             right_table,
             on,
             kind,
-        } => nestedloopjoin(catalog, left, right, left_table, right_table, on, kind),
+        } => nestedloopjoin(catalog, left, right, left_table, right_table, on, kind, xid),
         PhysicalPlan::IndexNestedLoopJoin {
             left,
             left_table,
@@ -84,6 +89,7 @@ pub fn execute(plan: &PhysicalPlan, catalog: &mut Catalog) -> Result<RowSet, Exe
             right_index_name,
             left_join_column,
             kind,
+            xid,
         ),
     }
 }
@@ -94,30 +100,36 @@ mod tests {
     use crumble_ir::{lower, to_physical};
     use crumble_sql::parse;
     use crumble_storage::{Catalog, ColumnType, Row, Value, col};
+    use crumble_tx::TransactionManager;
+    use std::sync::Arc;
 
-    fn seeded_catalog() -> (tempfile::TempDir, Catalog) {
+    fn seeded_catalog() -> (tempfile::TempDir, Catalog, u64) {
         let dir = tempfile::tempdir().unwrap();
-        let mut catalog = Catalog::open(dir.path()).unwrap();
+        let tx_manager = Arc::new(TransactionManager::new());
+        let catalog = Catalog::open(dir.path(), Arc::clone(&tx_manager)).unwrap();
+        let xid = tx_manager.begin();
+
         catalog
             .create_table(
                 "users",
                 vec![col("name", ColumnType::String), col("age", ColumnType::Int)],
             )
             .unwrap();
-
-        let users = catalog.get_mut("users").unwrap();
+        let users_handle = catalog.table("users").unwrap();
+        let mut users = users_handle.lock().unwrap();
         users
-            .insert(Row::new(vec![
-                Value::String("alice".to_string()),
-                Value::Int(35),
-            ]))
+            .insert(
+                Row::new(vec![Value::String("alice".to_string()), Value::Int(35)]),
+                xid,
+            )
             .unwrap();
         users
-            .insert(Row::new(vec![
-                Value::String("bob".to_string()),
-                Value::Int(22),
-            ]))
+            .insert(
+                Row::new(vec![Value::String("bob".to_string()), Value::Int(22)]),
+                xid,
+            )
             .unwrap();
+        drop(users);
 
         catalog
             .create_table(
@@ -128,27 +140,28 @@ mod tests {
                 ],
             )
             .unwrap();
-
-        let metrics = catalog.get_mut("metrics").unwrap();
+        let metrics_handle = catalog.table("metrics").unwrap();
+        let mut metrics = metrics_handle.lock().unwrap();
         metrics
-            .insert(Row::new(vec![
-                Value::String("a".to_string()),
-                Value::Float(4.0),
-            ]))
+            .insert(
+                Row::new(vec![Value::String("a".to_string()), Value::Float(4.0)]),
+                xid,
+            )
             .unwrap();
+        drop(metrics);
 
-        (dir, catalog)
+        (dir, catalog, xid)
     }
 
     #[test]
     fn executes_filtered_projection() -> Result<(), Box<dyn std::error::Error>> {
-        let (_dir, mut catalog) = seeded_catalog();
+        let (_dir, catalog, xid) = seeded_catalog();
 
         let ast = parse("SELECT name FROM users WHERE age > 30")?;
         let logical = lower(&ast)?;
         let physical = to_physical(logical);
 
-        let result = execute(&physical, &mut catalog)?;
+        let result = execute(&physical, &catalog, xid)?;
 
         assert_eq!(result.columns(), &["name".to_string()]);
         assert_eq!(
@@ -160,28 +173,28 @@ mod tests {
 
     #[test]
     fn errors_on_unknown_column() {
-        let (_dir, mut catalog) = seeded_catalog();
+        let (_dir, catalog, xid) = seeded_catalog();
 
         let ast = parse("SELECT ghost FROM users").unwrap();
         let logical = lower(&ast).unwrap();
         let physical = to_physical(logical);
 
-        let result = execute(&physical, &mut catalog);
+        let result = execute(&physical, &catalog, xid);
 
         assert!(matches!(result, Err(ExecError::ColumnNotFound(col)) if col == "ghost"));
     }
 
     #[test]
     fn inserts_then_reads_back() -> Result<(), Box<dyn std::error::Error>> {
-        let (_dir, mut catalog) = seeded_catalog();
+        let (_dir, catalog, xid) = seeded_catalog();
 
         let insert_ast = parse("INSERT INTO users (name, age) VALUES ('eve', 41)")?;
         let insert_physical = to_physical(lower(&insert_ast)?);
-        execute(&insert_physical, &mut catalog)?;
+        execute(&insert_physical, &catalog, xid)?;
 
         let select_ast = parse("SELECT name FROM users WHERE age > 40")?;
         let select_physical = to_physical(lower(&select_ast)?);
-        let result = execute(&select_physical, &mut catalog)?;
+        let result = execute(&select_physical, &catalog, xid)?;
 
         assert_eq!(
             result.rows(),
@@ -192,12 +205,11 @@ mod tests {
 
     #[test]
     fn filters_float_values() -> Result<(), Box<dyn std::error::Error>> {
-        let (_dir, mut catalog) = seeded_catalog();
+        let (_dir, catalog, xid) = seeded_catalog();
 
         let ast = parse("SELECT label FROM metrics WHERE score > 3.0")?;
-        let logical = lower(&ast)?;
-        let physical = to_physical(logical);
-        let result = execute(&physical, &mut catalog)?;
+        let physical = to_physical(lower(&ast)?);
+        let result = execute(&physical, &catalog, xid)?;
 
         assert_eq!(result.rows(), &[Row::new(vec![Value::String("a".into())])]);
         Ok(())
@@ -205,19 +217,20 @@ mod tests {
 
     #[test]
     fn executes_int_addition() -> Result<(), Box<dyn std::error::Error>> {
-        let (_dir, mut catalog) = seeded_catalog();
+        let (_dir, catalog, xid) = seeded_catalog();
         let ast = parse("SELECT name FROM users WHERE age > 20 + 1")?;
-        let logical = lower(&ast)?;
-        let physical = to_physical(logical);
-        let result = execute(&physical, &mut catalog)?;
+        let physical = to_physical(lower(&ast)?);
+        let result = execute(&physical, &catalog, xid)?;
 
         assert_eq!(result.rows().len(), 2);
         Ok(())
     }
 
-    fn seeded_catalog_with_orders() -> (tempfile::TempDir, Catalog) {
+    fn seeded_catalog_with_orders() -> (tempfile::TempDir, Catalog, u64) {
         let dir = tempfile::tempdir().unwrap();
-        let mut catalog = Catalog::open(dir.path()).unwrap();
+        let tx_manager = Arc::new(TransactionManager::new());
+        let catalog = Catalog::open(dir.path(), Arc::clone(&tx_manager)).unwrap();
+        let xid = tx_manager.begin();
 
         catalog
             .create_table(
@@ -225,25 +238,27 @@ mod tests {
                 vec![col("id", ColumnType::Int), col("name", ColumnType::String)],
             )
             .unwrap();
-        let users = catalog.get_mut("users").unwrap();
+        let users_handle = catalog.table("users").unwrap();
+        let mut users = users_handle.lock().unwrap();
         users
-            .insert(Row::new(vec![
-                Value::Int(1),
-                Value::String("alice".to_string()),
-            ]))
+            .insert(
+                Row::new(vec![Value::Int(1), Value::String("alice".to_string())]),
+                xid,
+            )
             .unwrap();
         users
-            .insert(Row::new(vec![
-                Value::Int(2),
-                Value::String("bob".to_string()),
-            ]))
+            .insert(
+                Row::new(vec![Value::Int(2), Value::String("bob".to_string())]),
+                xid,
+            )
             .unwrap();
         users
-            .insert(Row::new(vec![
-                Value::Int(3),
-                Value::String("carol".to_string()),
-            ]))
+            .insert(
+                Row::new(vec![Value::Int(3), Value::String("carol".to_string())]),
+                xid,
+            )
             .unwrap();
+        drop(users);
 
         catalog
             .create_table(
@@ -255,54 +270,53 @@ mod tests {
                 ],
             )
             .unwrap();
-        let orders = catalog.get_mut("orders").unwrap();
+        let orders_handle = catalog.table("orders").unwrap();
+        let mut orders = orders_handle.lock().unwrap();
         orders
-            .insert(Row::new(vec![
-                Value::Int(100),
-                Value::Int(1),
-                Value::Int(50),
-            ]))
+            .insert(
+                Row::new(vec![Value::Int(100), Value::Int(1), Value::Int(50)]),
+                xid,
+            )
             .unwrap();
         orders
-            .insert(Row::new(vec![
-                Value::Int(101),
-                Value::Int(1),
-                Value::Int(30),
-            ]))
+            .insert(
+                Row::new(vec![Value::Int(101), Value::Int(1), Value::Int(30)]),
+                xid,
+            )
             .unwrap();
         orders
-            .insert(Row::new(vec![
-                Value::Int(102),
-                Value::Int(2),
-                Value::Int(20),
-            ]))
+            .insert(
+                Row::new(vec![Value::Int(102), Value::Int(2), Value::Int(20)]),
+                xid,
+            )
             .unwrap();
         orders
-            .insert(Row::new(vec![
-                Value::Int(103),
-                Value::Int(99),
-                Value::Int(500),
-            ]))
+            .insert(
+                Row::new(vec![Value::Int(103), Value::Int(99), Value::Int(500)]),
+                xid,
+            )
             .unwrap();
+        drop(orders);
         // note: carol (id 3) has no orders; order 103 (user_id 99) has no matching user —
         // both are deliberate, exercising the "unmatched" side of LEFT/RIGHT joins.
 
-        (dir, catalog)
+        (dir, catalog, xid)
     }
 
-    fn run(sql: &str, catalog: &mut Catalog) -> Result<RowSet, Box<dyn std::error::Error>> {
+    fn run(sql: &str, catalog: &Catalog, xid: u64) -> Result<RowSet, Box<dyn std::error::Error>> {
         let ast = parse(sql)?;
         let physical = to_physical(lower(&ast)?);
-        Ok(execute(&physical, catalog)?)
+        Ok(execute(&physical, catalog, xid)?)
     }
 
     #[test]
     fn inner_join_returns_only_matched_pairs() -> Result<(), Box<dyn std::error::Error>> {
-        let (_dir, mut catalog) = seeded_catalog_with_orders();
+        let (_dir, catalog, xid) = seeded_catalog_with_orders();
 
         let result = run(
             "SELECT users.name, orders.total FROM users JOIN orders ON users.id = orders.user_id",
-            &mut catalog,
+            &catalog,
+            xid,
         )?;
 
         assert_eq!(
@@ -326,11 +340,12 @@ mod tests {
 
     #[test]
     fn left_join_pads_unmatched_left_row_with_null() -> Result<(), Box<dyn std::error::Error>> {
-        let (_dir, mut catalog) = seeded_catalog_with_orders();
+        let (_dir, catalog, xid) = seeded_catalog_with_orders();
 
         let result = run(
             "SELECT users.name, orders.total FROM users LEFT JOIN orders ON users.id = orders.user_id",
-            &mut catalog,
+            &catalog,
+            xid,
         )?;
 
         assert_eq!(
@@ -351,11 +366,12 @@ mod tests {
 
     #[test]
     fn right_join_pads_unmatched_right_row_with_null() -> Result<(), Box<dyn std::error::Error>> {
-        let (_dir, mut catalog) = seeded_catalog_with_orders();
+        let (_dir, catalog, xid) = seeded_catalog_with_orders();
 
         let result = run(
             "SELECT users.name, orders.total FROM users RIGHT JOIN orders ON users.id = orders.user_id",
-            &mut catalog,
+            &catalog,
+            xid,
         )?;
 
         assert_eq!(
@@ -376,15 +392,14 @@ mod tests {
 
     #[test]
     fn where_filters_correctly_on_top_of_a_join() -> Result<(), Box<dyn std::error::Error>> {
-        let (_dir, mut catalog) = seeded_catalog_with_orders();
+        let (_dir, catalog, xid) = seeded_catalog_with_orders();
 
         let result = run(
             "SELECT users.name FROM users JOIN orders ON users.id = orders.user_id WHERE orders.total > 25",
-            &mut catalog,
+            &catalog,
+            xid,
         )?;
 
-        // alice has two orders (50, 30), both > 25 — appears twice.
-        // bob has one order (20), not > 25 — excluded entirely.
         assert_eq!(result.rows().len(), 2);
         for row in result.rows() {
             assert_eq!(row.values()[0], Value::String("alice".to_string()));
@@ -394,11 +409,12 @@ mod tests {
 
     #[test]
     fn right_join_does_not_duplicate_matched_rows() -> Result<(), Box<dyn std::error::Error>> {
-        let (_dir, mut catalog) = seeded_catalog_with_orders();
+        let (_dir, catalog, xid) = seeded_catalog_with_orders();
 
         let result = run(
             "SELECT users.name, orders.total FROM users RIGHT JOIN orders ON users.id = orders.user_id",
-            &mut catalog,
+            &catalog,
+            xid,
         )?;
 
         let alice_count = result
@@ -406,7 +422,6 @@ mod tests {
             .iter()
             .filter(|r| r.values()[0] == Value::String("alice".to_string()))
             .count();
-
         assert_eq!(
             alice_count, 2,
             "alice's two real orders must each appear exactly once, no more"
@@ -416,11 +431,12 @@ mod tests {
 
     #[test]
     fn full_outer_join_pads_both_unmatched_sides() -> Result<(), Box<dyn std::error::Error>> {
-        let (_dir, mut catalog) = seeded_catalog_with_orders();
+        let (_dir, catalog, xid) = seeded_catalog_with_orders();
 
         let result = run(
             "SELECT users.name, orders.total FROM users FULL JOIN orders ON users.id = orders.user_id",
-            &mut catalog,
+            &catalog,
+            xid,
         )?;
 
         assert_eq!(

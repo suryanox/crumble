@@ -1,13 +1,15 @@
 use crate::{ExecError, RowSet, execute};
 use crumble_ir::PhysicalPlan;
 use crumble_storage::{Catalog, Row};
+use crumble_tx::TransactionId;
 
 pub(super) fn project(
-    catalog: &mut Catalog,
+    catalog: &Catalog,
     input: &Box<PhysicalPlan>,
     columns: &Vec<String>,
+    xid: TransactionId,
 ) -> Result<RowSet, ExecError> {
-    let input = execute(input, catalog)?;
+    let input = execute(input, catalog, xid)?;
     let mut indices = Vec::with_capacity(columns.len());
 
     for column in columns {

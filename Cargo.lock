@@ -63,6 +63,7 @@ dependencies = [
  "crumble-planner",
  "crumble-sql",
  "crumble-storage",
+ "crumble-tx",
 ]
 
 [[package]]
@@ -81,6 +82,7 @@ dependencies = [
  "crumble-ir",
  "crumble-sql",
  "crumble-storage",
+ "crumble-tx",
  "tempfile",
  "thiserror",
 ]
@@ -136,6 +138,7 @@ dependencies = [
  "bincode",
  "crumble-buffer",
  "crumble-index",
+ "crumble-tx",
  "crumble-wal",
  "serde",
  "serde_json",

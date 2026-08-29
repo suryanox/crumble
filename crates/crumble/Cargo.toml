@@ -10,3 +10,4 @@ crumble-opt = { path = "../crumble-opt" }
 crumble-storage = { path = "../crumble-storage" }
 crumble-exec = { path = "../crumble-exec" }
 crumble-planner = { path = "../crumble-planner" }
+crumble-tx = { path = "../crumble-tx" }

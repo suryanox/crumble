@@ -10,3 +10,4 @@ crumble-ir = { path = "../crumble-ir" }
 crumble-sql = { path = "../crumble-sql" }
 tempfile = "3.27.0"
 crumble-index = { path = "../crumble-index" }
+crumble-tx = { path = "../crumble-tx" }

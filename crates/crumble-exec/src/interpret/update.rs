@@ -1,26 +1,24 @@
 use crumble_ir::{Expr, Literal};
 use crumble_storage::{Catalog, Row, Value, value_to_index_key};
+use crumble_tx::TransactionId;
 
 use crate::error::ExecError;
 use crate::interpret::eval::{eval_expr, literal_to_value};
 use crate::row_set::RowSet;
 
-/**
-even for a column that wasn't assigned in SET, its old and new value are identical, so delete(old_key,...) then insert(new_key,...) with old_key == new_key is a harmless no-op pair — correct, just not the cheapest possible path.
-Fine for now; optimizing "only touch indexes on columns that actually changed" is a real but separate refinement, not required for correctness.
-
-*/
 pub(super) fn update(
-    catalog: &mut Catalog,
+    catalog: &Catalog,
     table: &str,
     assignments: &[(String, Literal)],
     predicate: &Option<Expr>,
+    xid: TransactionId,
 ) -> Result<RowSet, ExecError> {
-    let target = catalog.get_mut(table)?;
-    let located_rows = target.rows_with_location()?;
+    let target_handle = catalog.table(table)?;
+    let mut target = target_handle.lock().unwrap();
+
+    let located_rows = target.rows_with_location(xid)?;
     let columns: Vec<String> = target.columns().iter().map(|c| c.name.clone()).collect();
 
-    // (old_page_index, old_slot, old_row, new_page_index, new_slot, new_row)
     let mut changed = Vec::new();
 
     for ((page_index, slot), row) in located_rows {
@@ -41,8 +39,8 @@ pub(super) fn update(
             values[index] = literal_to_value(literal);
         }
 
-        target.delete_at(page_index, slot)?;
-        let (new_page_index, new_slot) = target.insert(Row::new(values.clone()))?;
+        target.delete_at(page_index, slot, xid)?;
+        let (new_page_index, new_slot) = target.insert(Row::new(values.clone()), xid)?;
 
         changed.push((
             page_index,
@@ -55,24 +53,28 @@ pub(super) fn update(
     }
 
     let updated = changed.len() as i64;
-    // target's borrow of catalog ends here.
+    drop(target); // release the table lock before touching index locks below
 
     let indexed_columns: Vec<(usize, String)> = columns
         .iter()
         .enumerate()
-        .filter_map(|(i, c)| catalog.index_for(table, c).map(|n| (i, n.to_string())))
+        .filter_map(|(i, c)| catalog.index_for(table, c).map(|n| (i, n)))
         .collect();
 
     for (old_page, old_slot, old_row, new_page, new_slot, new_row) in &changed {
         for (col_pos, index_name) in &indexed_columns {
             if let Some(old_key) = value_to_index_key(&old_row.values()[*col_pos]) {
-                catalog
-                    .index_mut(index_name)?
+                let index_handle = catalog.index(index_name)?;
+                index_handle
+                    .lock()
+                    .unwrap()
                     .delete(&old_key, *old_page, *old_slot)?;
             }
             if let Some(new_key) = value_to_index_key(&new_row.values()[*col_pos]) {
-                catalog
-                    .index_mut(index_name)?
+                let index_handle = catalog.index(index_name)?;
+                index_handle
+                    .lock()
+                    .unwrap()
                     .insert(new_key, *new_page, *new_slot)?;
             }
         }

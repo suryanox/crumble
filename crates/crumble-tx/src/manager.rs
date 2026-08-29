@@ -10,11 +10,13 @@ pub enum TxStatus {
     Aborted,
 }
 
+#[derive(Debug)]
 struct Inner {
     next_id: TransactionId,
     statuses: HashMap<TransactionId, TxStatus>,
 }
 
+#[derive(Debug)]
 pub struct TransactionManager {
     inner: Mutex<Inner>,
     completion: Condvar,
@@ -54,7 +56,7 @@ impl TransactionManager {
     }
 
     pub fn status(&self, xid: TransactionId) -> Option<TxStatus> {
-        let mut inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().unwrap();
         inner.statuses.get(&xid).copied()
     }
 

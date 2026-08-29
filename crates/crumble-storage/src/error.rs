@@ -18,7 +18,7 @@ pub enum StorageError {
     Encoding(String),
 
     #[error("row too large to fit in a page")]
-    RowTooLarge,
+    RowNotFound,
 
     #[error(transparent)]
     Buffer(#[from] BufferError),
@@ -34,4 +34,7 @@ pub enum StorageError {
 
     #[error("type mismatch on column '{column}': expected {expected}")]
     TypeMismatch { column: String, expected: String },
+
+    #[error("row was concurrently modified by another transaction")]
+    ConcurrentModification,
 }

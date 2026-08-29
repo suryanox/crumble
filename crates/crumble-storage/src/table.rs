@@ -2,8 +2,10 @@ use crate::column::ColumnDef;
 use crate::error::StorageError;
 use crate::row::Row;
 use crumble_buffer::BufferPool;
+use crumble_tx::{TransactionId, TransactionManager, TxStatus, is_visible};
 use crumble_wal::{WalRecord, WalWriter, read_all};
 use std::path::Path;
+use std::sync::Arc;
 
 const BUFFER_CAPACITY: usize = 64;
 #[derive(Debug)]
@@ -12,6 +14,7 @@ pub struct Table {
     columns: Vec<ColumnDef>,
     pool: BufferPool,
     wal: WalWriter,
+    tx_manager: Arc<TransactionManager>,
 }
 
 impl Table {
@@ -19,6 +22,7 @@ impl Table {
         name: impl Into<String>,
         columns: Vec<ColumnDef>,
         dir: impl AsRef<Path>,
+        tx_manager: Arc<TransactionManager>,
     ) -> Result<Self, StorageError> {
         let name = name.into();
         let dir = dir.as_ref();
@@ -34,6 +38,7 @@ impl Table {
             columns,
             pool,
             wal,
+            tx_manager,
         };
 
         // replay
@@ -80,7 +85,7 @@ impl Table {
 
     // Table = heap access method. Fully ignorant indexes exist. Just got its insert changed to return (page_index, slot)
     // not because it cares about indexing, but because it's the only one who knows where a row landed, and someone downstream will need that.
-    pub fn insert(&mut self, row: Row) -> Result<(u32, u16), StorageError> {
+    pub fn insert(&mut self, mut row: Row, xid: TransactionId) -> Result<(u32, u16), StorageError> {
         if row.values().len() != self.columns.len() {
             return Err(StorageError::ColumnCountMismatch {
                 expected: self.columns.len(),
@@ -97,6 +102,7 @@ impl Table {
             }
         }
 
+        row.xmin = xid;
         let bytes = row.to_bytes()?;
         let (page_index, slot, mut page) = self.prepare_insert(&bytes)?;
 
@@ -105,7 +111,6 @@ impl Table {
             page_index,
             row_bytes: bytes,
         })?;
-
         page.set_page_lsn(lsn);
         self.pool.write_page(page_index, &page)?;
         Ok((page_index, slot))
@@ -131,7 +136,7 @@ impl Table {
         }
 
         let mut page = crumble_buffer::Page::new();
-        let slot = page.insert_row(bytes).ok_or(StorageError::RowTooLarge)?;
+        let slot = page.insert_row(bytes).ok_or(StorageError::RowNotFound)?;
         Ok((page_count, slot, page))
     }
 
@@ -146,14 +151,14 @@ impl Table {
         };
 
         if page.insert_row(bytes).is_none() {
-            return Err(StorageError::RowTooLarge);
+            return Err(StorageError::RowNotFound);
         }
 
         page.set_page_lsn(lsn);
         Ok(self.pool.write_page(page_index, &page)?)
     }
 
-    pub fn rows(&mut self) -> Result<Vec<Row>, StorageError> {
+    pub fn rows(&mut self, reader: TransactionId) -> Result<Vec<Row>, StorageError> {
         let mut rows = Vec::new();
         let page_count = self.pool.page_count();
 
@@ -161,7 +166,10 @@ impl Table {
             let page = self.pool.fetch_page(page_index)?;
             for slot in 0..page.slot_count() {
                 if let Some(bytes) = page.get_row(slot) {
-                    rows.push(Row::from_bytes(bytes)?);
+                    let row = Row::from_bytes(bytes)?;
+                    if is_visible(row.xmin, row.xmax, reader, &self.tx_manager) {
+                        rows.push(row);
+                    }
                 }
             }
         }
@@ -169,7 +177,10 @@ impl Table {
         Ok(rows)
     }
 
-    pub fn rows_with_location(&mut self) -> Result<Vec<((u32, u16), Row)>, StorageError> {
+    pub fn rows_with_location(
+        &mut self,
+        reader: TransactionId,
+    ) -> Result<Vec<((u32, u16), Row)>, StorageError> {
         let mut rows = Vec::new();
         let page_count = self.pool.page_count();
 
@@ -177,21 +188,53 @@ impl Table {
             let page = self.pool.fetch_page(page_index)?;
             for slot in 0..page.slot_count() {
                 if let Some(bytes) = page.get_row(slot) {
-                    rows.push(((page_index, slot), Row::from_bytes(bytes)?));
+                    let row = Row::from_bytes(bytes)?;
+                    if is_visible(row.xmin, row.xmax, reader, &self.tx_manager) {
+                        rows.push(((page_index, slot), row));
+                    }
                 }
             }
         }
         Ok(rows)
     }
 
-    pub fn delete_at(&mut self, page_index: u32, slot: u16) -> Result<(), StorageError> {
-        let lsn = self.wal.append(&WalRecord::Delete {
-            table: self.name.clone(),
-            page_index,
-            slot,
-        })?;
+    pub fn delete_at(
+        &mut self,
+        page_index: u32,
+        slot: u16,
+        xid: TransactionId,
+    ) -> Result<(), StorageError> {
+        loop {
+            let page = self.pool.fetch_page(page_index)?;
+            let bytes = page.get_row(slot).ok_or(StorageError::RowNotFound)?; // reused error, see note below
+            let row = Row::from_bytes(bytes)?;
 
-        self.apply_delete_at(page_index, lsn, slot)
+            if let Some(other) = row.xmax {
+                if other != xid && self.tx_manager.status(other) == Some(TxStatus::InProgress) {
+                    self.tx_manager.wait_for(other); // blocks here until `other` finishes
+                    continue; // re-check the row's state fresh — this is the retry
+                }
+                if other != xid && self.tx_manager.status(other) == Some(TxStatus::Committed) {
+                    return Err(StorageError::ConcurrentModification);
+                }
+                // aborted, or already ours — fall through, safe to proceed
+            }
+
+            let mut updated_row = row;
+            updated_row.xmax = Some(xid);
+            let updated_bytes = updated_row.to_bytes()?;
+
+            let mut page = page;
+            page.delete_row(slot); // physical tombstone stays as-is for the page-scan path
+            let lsn = self.wal.append(&WalRecord::Insert {
+                table: self.name.clone(),
+                page_index,
+                row_bytes: updated_bytes,
+            })?;
+            page.set_page_lsn(lsn);
+            self.pool.write_page(page_index, &page)?;
+            return Ok(());
+        }
     }
 
     fn apply_delete_at(
@@ -206,14 +249,26 @@ impl Table {
         Ok(self.pool.write_page(page_index, &page)?)
     }
 
-    pub fn row_at(&mut self, page_index: u32, slot: u16) -> Result<Option<Row>, StorageError> {
+    pub fn row_at(
+        &mut self,
+        page_index: u32,
+        slot: u16,
+        reader: TransactionId,
+    ) -> Result<Option<Row>, StorageError> {
         if page_index >= self.pool.page_count() {
             return Ok(None);
         }
 
         let page = self.pool.fetch_page(page_index)?;
         match page.get_row(slot) {
-            Some(bytes) => Ok(Some(Row::from_bytes(bytes)?)),
+            Some(bytes) => {
+                let row = Row::from_bytes(bytes)?;
+                if is_visible(row.xmin, row.xmax, reader, &self.tx_manager) {
+                    Ok(Some(row))
+                } else {
+                    Ok(None)
+                }
+            }
             None => Ok(None),
         }
     }
@@ -225,18 +280,20 @@ mod tests {
     use crate::column::{ColumnType, col};
     use crate::value::Value;
 
-    fn temp_table(columns: Vec<ColumnDef>) -> (tempfile::TempDir, Table) {
+    fn temp_table(columns: Vec<ColumnDef>) -> (tempfile::TempDir, Table, TransactionId) {
         let dir = tempfile::tempdir().unwrap();
-        let table = Table::open("users", columns, dir.path()).unwrap();
-        (dir, table)
+        let tx_manager = Arc::new(TransactionManager::new());
+        let table = Table::open("users", columns, dir.path(), Arc::clone(&tx_manager)).unwrap();
+        let xid = tx_manager.begin();
+        (dir, table, xid)
     }
 
     #[test]
     fn insert_rejects_wrong_column_count() {
-        let (_dir, mut table) = temp_table(vec![col("name", ColumnType::String)]);
+        let (_dir, mut table, xid) = temp_table(vec![col("name", ColumnType::String)]);
         let row = Row::new(vec![Value::String("a".to_string()), Value::Int(1)]);
 
-        let result = table.insert(row);
+        let result = table.insert(row, xid);
 
         assert!(matches!(
             result,
@@ -249,38 +306,35 @@ mod tests {
 
     #[test]
     fn insert_accepts_matching_row() -> Result<(), StorageError> {
-        let (_dir, mut table) = temp_table(vec![col("name", ColumnType::String)]);
-        table.insert(Row::new(vec![Value::String("alice".to_string())]))?;
+        let (_dir, mut table, xid) = temp_table(vec![col("name", ColumnType::String)]);
+        table.insert(Row::new(vec![Value::String("alice".to_string())]), xid)?;
 
-        assert_eq!(table.rows()?.len(), 1);
+        assert_eq!(table.rows(xid)?.len(), 1);
         Ok(())
     }
 
     #[test]
     fn recovers_dirty_writes_after_simulated_crash() -> Result<(), StorageError> {
         let dir = tempfile::tempdir()?;
+        let tx_manager = Arc::new(TransactionManager::new());
+        let xid = tx_manager.begin();
 
         {
-            let mut table =
-                Table::open("users", vec![col("name", ColumnType::String)], dir.path())?;
-            table.insert(Row::new(vec![Value::String("alice".to_string())]))?;
-            table.insert(Row::new(vec![Value::String("bob".to_string())]))?;
-            // table is dropped here WITHOUT any explicit flush/checkpoint —
-            // simulating a process crash right after these writes returned.
-            // Both inserts are only durable via the WAL at this point.
+            let mut table = Table::open(
+                "users", vec![col("name", ColumnType::String)], dir.path(), Arc::clone(&tx_manager),
+            )?;
+            table.insert(Row::new(vec![Value::String("alice".to_string())]), xid)?;
+            table.insert(Row::new(vec![Value::String("bob".to_string())]), xid)?;
         }
 
-        let mut recovered =
-            Table::open("users", vec![col("name", ColumnType::String)], dir.path())?;
-        let rows = recovered.rows()?;
+        let mut recovered = Table::open(
+            "users", vec![col("name", ColumnType::String)], dir.path(), Arc::clone(&tx_manager),
+        )?;
+        let rows = recovered.rows(xid)?;
 
-        assert_eq!(
-            rows.len(),
-            2,
-            "both writes should recover from the WAL alone"
-        );
-        assert_eq!(rows[0], Row::new(vec![Value::String("alice".to_string())]));
-        assert_eq!(rows[1], Row::new(vec![Value::String("bob".to_string())]));
+        assert_eq!(rows.len(), 2, "both writes should recover from the WAL alone");
+        assert_eq!(rows[0].values(), &[Value::String("alice".to_string())]);
+        assert_eq!(rows[1].values(), &[Value::String("bob".to_string())]);
 
         Ok(())
     }
@@ -288,21 +342,29 @@ mod tests {
     #[test]
     fn replay_does_not_duplicate_already_flushed_rows() -> Result<(), StorageError> {
         let dir = tempfile::tempdir()?;
+        let tx_manager = Arc::new(TransactionManager::new());
+        let xid = tx_manager.begin();
 
         {
-            let mut table =
-                Table::open("users", vec![col("name", ColumnType::String)], dir.path())?;
-            table.insert(Row::new(vec![Value::String("alice".to_string())]))?;
-            // Force this page to actually flush to disk (not just cached-dirty),
-            // by evicting it: fill the buffer pool past capacity with other pages.
+            let mut table = Table::open(
+                "users",
+                vec![col("name", ColumnType::String)],
+                dir.path(),
+                Arc::clone(&tx_manager),
+            )?;
+            table.insert(Row::new(vec![Value::String("alice".to_string())]), xid)?;
             for i in 0..BUFFER_CAPACITY {
-                table.insert(Row::new(vec![Value::String(format!("filler-{i}"))]))?;
+                table.insert(Row::new(vec![Value::String(format!("filler-{i}"))]), xid)?;
             }
         }
 
-        let mut recovered =
-            Table::open("users", vec![col("name", ColumnType::String)], dir.path())?;
-        let rows = recovered.rows()?;
+        let mut recovered = Table::open(
+            "users",
+            vec![col("name", ColumnType::String)],
+            dir.path(),
+            Arc::clone(&tx_manager),
+        )?;
+        let rows = recovered.rows(xid)?;
         let alice_count = rows
             .iter()
             .filter(|r| r.values() == [Value::String("alice".to_string())])

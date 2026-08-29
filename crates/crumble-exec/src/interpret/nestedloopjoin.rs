@@ -2,18 +2,20 @@ use crate::interpret::eval::eval_expr;
 use crate::{ExecError, RowSet, execute};
 use crumble_ir::{Expr, JoinKind, PhysicalPlan};
 use crumble_storage::{Catalog, Row, Value};
+use crumble_tx::TransactionId;
 
 pub(super) fn nestedloopjoin(
-    catalog: &mut Catalog,
+    catalog: &Catalog,
     left: &Box<PhysicalPlan>,
     right: &Box<PhysicalPlan>,
     left_table: &str,
     right_table: &str,
     on: &Expr,
     kind: &JoinKind,
+    xid: TransactionId,
 ) -> Result<RowSet, ExecError> {
-    let left_result = execute(left, catalog)?;
-    let right_result = execute(right, catalog)?;
+    let left_result = execute(left, catalog, xid)?;
+    let right_result = execute(right, catalog, xid)?;
 
     let qualified_columns: Vec<String> = left_result
         .columns()
