@@ -167,7 +167,8 @@ impl Table {
             for slot in 0..page.slot_count() {
                 if let Some(bytes) = page.get_row(slot) {
                     let row = Row::from_bytes(bytes)?;
-                    if is_visible(row.xmin, row.xmax, reader, &self.tx_manager) {
+                    let xmax = if row.xmax == 0 { None } else { Some(row.xmax) };
+                    if is_visible(row.xmin, xmax, reader, &self.tx_manager) {
                         rows.push(row);
                     }
                 }
@@ -189,7 +190,8 @@ impl Table {
             for slot in 0..page.slot_count() {
                 if let Some(bytes) = page.get_row(slot) {
                     let row = Row::from_bytes(bytes)?;
-                    if is_visible(row.xmin, row.xmax, reader, &self.tx_manager) {
+                    let xmax = if row.xmax == 0 { None } else { Some(row.xmax) };
+                    if is_visible(row.xmin, xmax, reader, &self.tx_manager) {
                         rows.push(((page_index, slot), row));
                     }
                 }
@@ -224,7 +226,8 @@ impl Table {
         match page.get_row(slot) {
             Some(bytes) => {
                 let row = Row::from_bytes(bytes)?;
-                if is_visible(row.xmin, row.xmax, reader, &self.tx_manager) {
+                let xmax = if row.xmax == 0 { None } else { Some(row.xmax) };
+                if is_visible(row.xmin, xmax, reader, &self.tx_manager) {
                     Ok(Some(row))
                 } else {
                     Ok(None)
@@ -248,36 +251,43 @@ pub fn delete_at(
             let bytes = page.get_row(slot).ok_or(StorageError::RowNotFound)?;
             let row = Row::from_bytes(bytes)?;
 
-            match row.xmax {
-                Some(other)
-                    if other != xid && t.tx_manager.status(other) == Some(TxStatus::InProgress) =>
-                {
-                    Some(other) // signal: need to wait, outside the lock
-                }
-                Some(other)
-                    if other != xid && t.tx_manager.status(other) == Some(TxStatus::Committed) =>
-                {
-                    return Err(StorageError::ConcurrentModification);
-                }
-                _ => {
-                    let mut updated_row = row;
-                    updated_row.xmax = Some(xid);
-                    let updated_bytes = updated_row.to_bytes()?;
+            let other = row.xmax;
+            let held_by_someone_else = other != 0 && other != xid;
 
-                    let mut page = page;
-                    page.delete_row(slot);
-                    let table_name = t.name.clone();
-                    let lsn = t.wal.append(&WalRecord::Insert {
-                        table: table_name,
-                        page_index,
-                        row_bytes: updated_bytes,
-                    })?;
-                    page.set_page_lsn(lsn);
-                    t.pool.write_page(page_index, &page)?;
-                    return Ok(());
-                }
+            if held_by_someone_else && t.tx_manager.status(other) == Some(TxStatus::InProgress) {
+                // someone else has it claimed and hasn't resolved yet —
+                // signal the outer loop to wait, don't touch the page.
+                Some(other)
+            } else if held_by_someone_else
+                && t.tx_manager.status(other) == Some(TxStatus::Committed)
+            {
+                // someone else already committed a delete on this row — we lose.
+                return Err(StorageError::ConcurrentModification);
+            } else {
+                // either: unclaimed (0), already ours, or the other claimant
+                // aborted (their delete never really happened) — safe to proceed.
+                let mut updated_row = row;
+                updated_row.xmax = xid;
+                let updated_bytes = updated_row.to_bytes()?;
+
+                let mut page = page;
+                let overwrote = page.update_row(slot, &updated_bytes);
+                debug_assert!(
+                    overwrote,
+                    "xmax-only update must always fit the original slot's length"
+                );
+
+                let table_name = t.name.clone();
+                let lsn = t.wal.append(&WalRecord::Insert {
+                    table: table_name,
+                    page_index,
+                    row_bytes: updated_bytes,
+                })?;
+                page.set_page_lsn(lsn);
+                t.pool.write_page(page_index, &page)?;
+                return Ok(());
             }
-        }; // <-- physical lock (`t`) is dropped here, at the end of this block
+        }; // physical lock (`t`) is dropped here, at the end of this block
 
         if let Some(other) = conflict {
             let tx_manager = table.lock().unwrap().tx_manager.clone();
@@ -292,6 +302,8 @@ mod tests {
     use super::*;
     use crate::column::{ColumnType, col};
     use crate::value::Value;
+    use std::thread;
+    use std::time::Duration;
 
     fn temp_table(columns: Vec<ColumnDef>) -> (tempfile::TempDir, Table, TransactionId) {
         let dir = tempfile::tempdir().unwrap();
@@ -397,6 +409,117 @@ mod tests {
             alice_count, 1,
             "a row already flushed via eviction must not be replayed again"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn concurrent_delete_blocks_then_conflicts_after_commit() -> Result<(), StorageError> {
+        let dir = tempfile::tempdir().unwrap();
+        let tx_manager = Arc::new(TransactionManager::new());
+
+        let setup_xid = tx_manager.begin();
+        let table = Arc::new(Mutex::new(Table::open(
+            "users",
+            vec![col("name", ColumnType::String)],
+            dir.path(),
+            Arc::clone(&tx_manager),
+        )?));
+        let (page_index, slot) = {
+            let mut t = table.lock().unwrap();
+            t.insert(
+                Row::new(vec![Value::String("alice".to_string())]),
+                setup_xid,
+            )?
+        };
+        tx_manager.commit(setup_xid);
+
+        let xid_a = tx_manager.begin();
+        delete_at(&table, page_index, slot, xid_a)?; // A claims the row, still in-progress
+
+        let xid_b = tx_manager.begin();
+        let table_for_b = Arc::clone(&table);
+        let handle = thread::spawn(move || delete_at(&table_for_b, page_index, slot, xid_b));
+
+        thread::sleep(Duration::from_millis(50)); // let B actually reach wait_for and block
+        tx_manager.commit(xid_a); // wakes B
+
+        let result = handle.join().unwrap();
+        assert!(
+            matches!(result, Err(StorageError::ConcurrentModification)),
+            "B must wake and find A's committed delete already won"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn concurrent_delete_blocks_then_succeeds_after_abort() -> Result<(), StorageError> {
+        let dir = tempfile::tempdir().unwrap();
+        let tx_manager = Arc::new(TransactionManager::new());
+
+        let setup_xid = tx_manager.begin();
+        let table = Arc::new(Mutex::new(Table::open(
+            "users",
+            vec![col("name", ColumnType::String)],
+            dir.path(),
+            Arc::clone(&tx_manager),
+        )?));
+        let (page_index, slot) = {
+            let mut t = table.lock().unwrap();
+            t.insert(
+                Row::new(vec![Value::String("alice".to_string())]),
+                setup_xid,
+            )?
+        };
+        tx_manager.commit(setup_xid);
+
+        let xid_a = tx_manager.begin();
+        delete_at(&table, page_index, slot, xid_a)?;
+
+        let xid_b = tx_manager.begin();
+        let table_for_b = Arc::clone(&table);
+        let handle = thread::spawn(move || delete_at(&table_for_b, page_index, slot, xid_b));
+
+        thread::sleep(Duration::from_millis(50));
+        tx_manager.abort(xid_a); // A's delete never happened — B should be free to proceed
+
+        let result = handle.join().unwrap();
+        assert!(
+            result.is_ok(),
+            "B must wake and succeed once A's conflicting delete is undone"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn concurrent_inserts_into_different_tables_do_not_corrupt_data() -> Result<(), StorageError> {
+        let dir = tempfile::tempdir()?;
+        let tx_manager = Arc::new(TransactionManager::new());
+
+        let mut handles = Vec::new();
+        for table_num in 0..4 {
+            let table_dir = dir.path().to_path_buf();
+            let tx_manager = Arc::clone(&tx_manager);
+
+            handles.push(thread::spawn(move || -> Result<(), StorageError> {
+                let xid = tx_manager.begin();
+                let mut table = Table::open(
+                    format!("t{table_num}"),
+                    vec![col("name", ColumnType::String)],
+                    &table_dir,
+                    Arc::clone(&tx_manager),
+                )?;
+                for i in 0..20 {
+                    table.insert(Row::new(vec![Value::String(format!("row-{i}"))]), xid)?;
+                }
+                tx_manager.commit(xid);
+                assert_eq!(table.rows(xid)?.len(), 20);
+                Ok(())
+            }));
+        }
+
+        for handle in handles {
+            handle.join().unwrap()?;
+        }
         Ok(())
     }
 }

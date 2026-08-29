@@ -118,6 +118,29 @@ impl Page {
     pub fn as_bytes(&self) -> &[u8; PAGE_SIZE] {
         &self.bytes
     }
+
+    /// Overwrites an existing live slot's bytes in place. `new_data` MUST be
+    /// exactly the same length as what's currently stored — this is not a
+    /// general resize-capable update, just the narrow case MVCC's xmax
+    /// stamping needs, where the caller guarantees identical length.
+    pub fn update_row(&mut self, slot_index: u16, new_data: &[u8]) -> bool {
+        if slot_index >= self.slot_count() || !self.is_live(slot_index) {
+            return false;
+        }
+
+        let slot_offset = HEADER_SIZE + (slot_index as usize) * SLOT_SIZE;
+        let row_offset =
+            u16::from_le_bytes([self.bytes[slot_offset], self.bytes[slot_offset + 1]]) as usize;
+        let row_len =
+            u16::from_le_bytes([self.bytes[slot_offset + 2], self.bytes[slot_offset + 3]]) as usize;
+
+        if new_data.len() != row_len {
+            return false;
+        }
+
+        self.bytes[row_offset..row_offset + row_len].copy_from_slice(new_data);
+        true
+    }
 }
 
 #[cfg(test)]
@@ -172,5 +195,27 @@ mod tests {
     fn deleting_out_of_range_slot_returns_false() {
         let mut page = Page::new();
         assert!(!page.delete_row(0));
+    }
+
+    #[test]
+    fn update_row_overwrites_in_place() {
+        let mut page = Page::new();
+        let slot = page.insert_row(b"hello").unwrap();
+
+        assert!(page.update_row(slot, b"world"));
+        assert_eq!(page.get_row(slot), Some(b"world".as_slice()));
+    }
+
+    #[test]
+    fn update_row_rejects_length_mismatch() {
+        let mut page = Page::new();
+        let slot = page.insert_row(b"hello").unwrap();
+
+        assert!(!page.update_row(slot, b"hi"));
+        assert_eq!(
+            page.get_row(slot),
+            Some(b"hello".as_slice()),
+            "original bytes must be untouched on rejection"
+        );
     }
 }

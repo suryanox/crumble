@@ -10,7 +10,14 @@ metadata.
 pub struct Row {
     values: Vec<Value>,
     pub xmin: u64,
-    pub xmax: Option<u64>,
+    /// 0 means "no transaction currently claims this row." A real xid is
+    /// always >= 1 (TransactionManager starts counting from 1), so 0 is a
+    /// safe, unambiguous sentinel deliberately a plain u64, not
+    /// Option<u64>, since bincode encodes a bare u64 as exactly 8 bytes
+    /// always, guaranteeing the row's total serialized length never
+    /// changes when only xmax is updated. That fixed length is what makes
+    /// true in-place page overwrite safe.
+    pub xmax: u64,
 }
 
 impl Row {
@@ -23,7 +30,7 @@ impl Row {
         Self {
             values,
             xmin: 0,
-            xmax: None,
+            xmax: 0,
         }
     }
 
