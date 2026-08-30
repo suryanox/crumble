@@ -39,6 +39,7 @@ fn lower_statement(statement: &Statement) -> Result<LogicalPlan, LowerError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Projection;
     use crate::expr::{BinaryOperator, Expr, Literal};
     use crate::plan::LogicalPlan;
     use crumble_sql::parse;
@@ -59,7 +60,7 @@ mod tests {
                     right: Box::new(Expr::Literal(Literal::Int(30))),
                 },
             }),
-            columns: vec!["name".to_string()],
+            columns: Projection::Columns(vec!["name".to_string()]),
         };
 
         assert_eq!(plan, expected);
@@ -75,7 +76,23 @@ mod tests {
             input: Box::new(LogicalPlan::Scan {
                 table: "users".to_string(),
             }),
-            columns: vec!["name".to_string()],
+            columns: Projection::Columns(vec!["name".to_string()]),
+        };
+
+        assert_eq!(plan, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn lowers_select_star_without_filter() -> Result<(), Box<dyn std::error::Error>> {
+        let ast = parse("SELECT * FROM users")?;
+        let plan = lower(&ast)?;
+
+        let expected = LogicalPlan::Project {
+            input: Box::new(LogicalPlan::Scan {
+                table: "users".to_string(),
+            }),
+            columns: Projection::All,
         };
 
         assert_eq!(plan, expected);
@@ -98,7 +115,7 @@ mod tests {
                     right: Box::new(Expr::Literal(Literal::Float(30.12894))),
                 },
             }),
-            columns: vec!["name".to_string()],
+            columns: Projection::Columns(vec!["name".to_string()]),
         };
 
         assert_eq!(plan, expected);

@@ -1,5 +1,5 @@
 use crate::lower::expr::lower_expr;
-use crate::plan::JoinKind;
+use crate::plan::{JoinKind, Projection};
 use crate::{LogicalPlan, LowerError};
 use sqlparser::ast::{Expr as SqlExpr, Select, SelectItem, SetExpr, TableFactor, TableWithJoins};
 
@@ -95,8 +95,12 @@ fn table_name_and_qualifier(relation: &TableFactor) -> Result<(String, String), 
     }
 }
 
-fn lower_projection(projection: &[SelectItem]) -> Result<Vec<String>, LowerError> {
-    projection
+fn lower_projection(projection: &[SelectItem]) -> Result<Projection, LowerError> {
+    if projection.len() == 1 && matches!(projection[0], SelectItem::Wildcard(_)) {
+        return Ok(Projection::All);
+    }
+
+    let columns = projection
         .iter()
         .map(|item| match item {
             SelectItem::UnnamedExpr(SqlExpr::Identifier(ident)) => Ok(ident.value.clone()),
@@ -109,5 +113,7 @@ fn lower_projection(projection: &[SelectItem]) -> Result<Vec<String>, LowerError
                 "projection item: {other:?}"
             ))),
         })
-        .collect()
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(Projection::Columns(columns))
 }

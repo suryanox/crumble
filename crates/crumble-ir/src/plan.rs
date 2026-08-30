@@ -16,7 +16,7 @@ pub enum LogicalPlan {
     },
     Project {
         input: Box<LogicalPlan>,
-        columns: Vec<String>,
+        columns: Projection,
     },
     Insert {
         table: String,
@@ -57,4 +57,10 @@ pub enum JoinKind {
     Left,
     Right,
     FullOuter,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Projection {
+    All,
+    Columns(Vec<String>),
 }

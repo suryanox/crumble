@@ -2,13 +2,15 @@ use crumble_exec::execute;
 use crumble_ir::{lower, to_physical};
 use crumble_opt::{ConstantFold, OptimizationPass};
 use crumble_planner::plan_index_scans;
-use crumble_sql::parse;
 use crumble_storage::{Catalog, Row, StorageError};
 use crumble_tx::TransactionManager;
 use std::io;
 use std::io::Write;
 use std::process::ExitCode;
 use std::sync::Arc;
+
+use crumble_sql::{TransactionControl, parse, transaction_control};
+use crumble_tx::TransactionId;
 
 fn seeded_catalog() -> Result<Catalog, StorageError> {
     let tx_manager = Arc::new(TransactionManager::new());
@@ -18,6 +20,7 @@ fn seeded_catalog() -> Result<Catalog, StorageError> {
 const RESET: &str = "\x1b[0m";
 const CYAN: &str = "\x1b[36m";
 const GREEN: &str = "\x1b[32m";
+const YELLOW: &str = "\x1b[33m";
 const RED: &str = "\x1b[31m";
 const DIM: &str = "\x1b[2m";
 
@@ -82,6 +85,8 @@ fn main() -> ExitCode {
         }
     };
 
+    let mut session_xid: Option<TransactionId> = None;
+
     loop {
         print!("{CYAN}crumble>{RESET} ");
         io::stdout().flush().unwrap();
@@ -113,6 +118,34 @@ fn main() -> ExitCode {
             }
         };
 
+        if let Some(control) = transaction_control(&ast) {
+            match control {
+                TransactionControl::Begin => {
+                    if session_xid.is_some() {
+                        println!("{YELLOW}warning: already in a transaction{RESET}");
+                    } else {
+                        session_xid = Some(catalog.tx_manager.begin());
+                        println!("{GREEN}BEGIN{RESET}");
+                    }
+                }
+                TransactionControl::Commit => match session_xid.take() {
+                    Some(xid) => {
+                        catalog.tx_manager.commit(xid);
+                        println!("{GREEN}COMMIT{RESET}");
+                    }
+                    None => println!("{YELLOW}warning: no transaction in progress{RESET}"),
+                },
+                TransactionControl::Rollback => match session_xid.take() {
+                    Some(xid) => {
+                        catalog.tx_manager.abort(xid);
+                        println!("{GREEN}ROLLBACK{RESET}");
+                    }
+                    None => println!("{YELLOW}warning: no transaction in progress{RESET}"),
+                },
+            }
+            continue;
+        }
+
         let logical = match lower(&ast) {
             Ok(plan) => plan,
             Err(err) => {
@@ -125,14 +158,21 @@ fn main() -> ExitCode {
         let physical = to_physical(optimized);
         let physical = plan_index_scans(physical, &catalog);
 
-        eprintln!("{:?}", physical);
-        let xid = catalog.tx_manager.begin();
+        let (xid, auto_commit) = match session_xid {
+            Some(xid) => (xid, false),
+            None => (catalog.tx_manager.begin(), true),
+        };
 
         let result = execute(&physical, &catalog, xid);
 
-        match &result {
-            Ok(_) => catalog.tx_manager.commit(xid),
-            Err(_) => catalog.tx_manager.abort(xid),
+        if auto_commit {
+            match &result {
+                Ok(_) => catalog.tx_manager.commit(xid),
+                Err(_) => catalog.tx_manager.abort(xid),
+            }
+        } else if result.is_err() {
+            catalog.tx_manager.abort(xid);
+            session_xid = None;
         }
 
         match result {

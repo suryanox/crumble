@@ -1,5 +1,5 @@
 use crate::expr::Expr;
-use crate::plan::JoinKind;
+use crate::plan::{JoinKind, Projection};
 use crate::{ColumnDef, Literal};
 
 /**
@@ -17,7 +17,7 @@ pub enum PhysicalPlan {
     },
     Project {
         input: Box<PhysicalPlan>,
-        columns: Vec<String>,
+        columns: Projection,
     },
     Insert {
         table: String,
