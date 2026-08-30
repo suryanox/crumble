@@ -291,8 +291,11 @@ pub fn delete_at(
 
         if let Some(other) = conflict {
             let tx_manager = table.lock().unwrap().tx_manager.clone();
-            tx_manager.wait_for(other); // blocked here — table is NOT locked during this
-            // loop back around: re-lock, re-fetch, re-check from scratch
+
+            if let Err(_deadlock_detected) = tx_manager.wait_for(xid, other) {
+                tx_manager.abort(xid);
+                return Err(StorageError::Deadlock);
+            }
         }
     }
 }
@@ -520,6 +523,57 @@ mod tests {
         for handle in handles {
             handle.join().unwrap()?;
         }
+        Ok(())
+    }
+
+    #[test]
+    fn deadlock_is_detected_not_hung() -> Result<(), StorageError> {
+        let dir = tempfile::tempdir().unwrap();
+        let tx_manager = Arc::new(TransactionManager::new());
+
+        let setup = tx_manager.begin();
+        let table = Arc::new(Mutex::new(Table::open(
+            "users",
+            vec![col("name", ColumnType::String)],
+            dir.path(),
+            Arc::clone(&tx_manager),
+        )?));
+        let (page_row1, slot_row1) = {
+            let mut t = table.lock().unwrap();
+            t.insert(Row::new(vec![Value::String("row1".to_string())]), setup)?
+        };
+        let (page_row2, slot_row2) = {
+            let mut t = table.lock().unwrap();
+            t.insert(Row::new(vec![Value::String("row2".to_string())]), setup)?
+        };
+        tx_manager.commit(setup);
+
+        let xid_a = tx_manager.begin();
+        let xid_b = tx_manager.begin();
+
+        delete_at(&table, page_row1, slot_row1, xid_a)?; // A holds row1
+        delete_at(&table, page_row2, slot_row2, xid_b)?; // B holds row2
+
+        let table_a = Arc::clone(&table);
+        let handle_a = thread::spawn(move || delete_at(&table_a, page_row2, slot_row2, xid_a)); // A wants row2 (B has it)
+
+        thread::sleep(Duration::from_millis(50));
+
+        let table_b = Arc::clone(&table);
+        let handle_b = thread::spawn(move || delete_at(&table_b, page_row1, slot_row1, xid_b)); // B wants row1 (A has it) — cycle!
+
+        let result_a = handle_a.join().unwrap();
+        let result_b = handle_b.join().unwrap();
+
+        let deadlocks = [&result_a, &result_b]
+            .iter()
+            .filter(|r| matches!(r, Err(StorageError::Deadlock)))
+            .count();
+        assert_eq!(
+            deadlocks, 1,
+            "exactly one side of the cycle must be caught as a deadlock, not both hanging"
+        );
+
         Ok(())
     }
 }

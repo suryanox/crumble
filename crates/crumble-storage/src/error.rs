@@ -37,4 +37,7 @@ pub enum StorageError {
 
     #[error("row was concurrently modified by another transaction")]
     ConcurrentModification,
+
+    #[error("deadlock detected, transaction aborted")]
+    Deadlock,
 }

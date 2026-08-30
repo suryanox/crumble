@@ -14,6 +14,7 @@ pub enum TxStatus {
 struct Inner {
     next_id: TransactionId,
     statuses: HashMap<TransactionId, TxStatus>,
+    waits_for: HashMap<TransactionId, TransactionId>,
 }
 
 #[derive(Debug)]
@@ -21,6 +22,10 @@ pub struct TransactionManager {
     inner: Mutex<Inner>,
     completion: Condvar,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DeadlockDetected;
+
 /// a Mutex lock can only fail if a different thread panicked while holding it (a "poisoned" lock) a real, exceptional condition worth crashing loudly on for now, not silently working around.
 impl TransactionManager {
     pub fn new() -> Self {
@@ -28,6 +33,7 @@ impl TransactionManager {
             inner: Mutex::new(Inner {
                 next_id: 1,
                 statuses: HashMap::new(),
+                waits_for: HashMap::new(),
             }),
             completion: Condvar::new(),
         }
@@ -60,17 +66,47 @@ impl TransactionManager {
         inner.statuses.get(&xid).copied()
     }
 
-    /// Blocks the calling thread until `xid` finishes (commits or aborts).
-    /// Returns the final status.
-    pub fn wait_for(&self, xid: TransactionId) -> TxStatus {
+    /// Blocks the calling transaction waiter until other finishes,
+    /// UNLESS doing so would create a cycle in the wait-for graph in
+    /// that case, returns Err immediately without ever blocking.
+    pub fn wait_for(
+        &self,
+        waiter: TransactionId,
+        other: TransactionId,
+    ) -> Result<TxStatus, DeadlockDetected> {
         let mut inner = self.inner.lock().unwrap();
+
+        match inner.statuses.get(&other) {
+            Some(TxStatus::InProgress) => {}
+            Some(status) => return Ok(*status),
+            None => panic!("wait_for called on unknown transaction id {other}"),
+        }
+
+        let mut current = other;
+
         loop {
-            match inner.statuses.get(&xid) {
+            if current == waiter {
+                return Err(DeadlockDetected);
+            }
+            match inner.waits_for.get(&current) {
+                Some(&next) => current = next,
+                None => break,
+            }
+        }
+
+        inner.waits_for.insert(waiter, other);
+
+        loop {
+            match inner.statuses.get(&other) {
                 Some(TxStatus::InProgress) => {
                     inner = self.completion.wait(inner).unwrap();
                 }
-                Some(status) => return *status,
-                None => panic!("wait_for called on unknown transaction id {xid}"),
+                Some(status) => {
+                    let status = *status; // copy out now, so the borrow of `inner` ends here
+                    inner.waits_for.remove(&waiter);
+                    return Ok(status);
+                }
+                None => panic!("wait_for called on unknown transaction id {other}"),
             }
         }
     }
@@ -78,7 +114,7 @@ impl TransactionManager {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::{TransactionManager, TxStatus};
     use std::sync::Arc;
     use std::thread;
     use std::time::Duration;
@@ -86,29 +122,27 @@ mod tests {
     #[test]
     fn wait_for_blocks_until_commit() {
         let manager = Arc::new(TransactionManager::new());
-        let xid = manager.begin();
+        let waiter_xid = manager.begin();
+        let other_xid = manager.begin();
 
         let waiter_manager = Arc::clone(&manager);
-        let waiter = thread::spawn(move || waiter_manager.wait_for(xid));
+        let waiter = thread::spawn(move || waiter_manager.wait_for(waiter_xid, other_xid));
 
-        // give the waiting thread time to actually reach wait_for and block —
-        // not perfectly deterministic, but good enough to catch a broken wait.
         thread::sleep(Duration::from_millis(50));
-
-        manager.commit(xid);
+        manager.commit(other_xid);
 
         let result = waiter.join().unwrap();
-        assert_eq!(result, TxStatus::Committed);
+        assert_eq!(result, Ok(TxStatus::Committed));
     }
 
     #[test]
     fn wait_for_returns_immediately_if_already_finished() {
         let manager = TransactionManager::new();
-        let xid = manager.begin();
-        manager.abort(xid);
+        let waiter_xid = manager.begin();
+        let other_xid = manager.begin();
+        manager.abort(other_xid);
 
-        // no blocking should happen here at all — status already settled.
-        let result = manager.wait_for(xid);
-        assert_eq!(result, TxStatus::Aborted);
+        let result = manager.wait_for(waiter_xid, other_xid);
+        assert_eq!(result, Ok(TxStatus::Aborted));
     }
 }
