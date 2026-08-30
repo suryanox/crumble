@@ -333,3 +333,56 @@ qualifier split as aliasing, because the rewrite needs the real table name
 to actually query the catalog and the index, but the qualifier for naming
 output columns, and by the time the rewrite runs those two things already
 live in different places in the plan tree.
+
+## MVCC — row versioning through the locking door, not the visibility door
+went straight to row-level locking per your choice, skipping coarse-grained
+entirely. turns out row-level LOCKS in real MVCC are implemented THROUGH row
+versioning (xmax being set = the lock), not separately from it — so building
+locks meant building xmin/xmax/transaction-id infrastructure anyway. same
+foundation either way, just entered from a different side.
+
+physical lock (Mutex<Table>, brief, per-operation) is a completely different
+thing from the logical/transactional row lock (xmax + wait_for, held for a
+whole transaction) — both needed, not alternatives. real bug caught by
+writing the actual concurrent test: delete_at originally held the physical
+mutex THROUGH the wait_for block, meaning one transaction waiting on another
+blocked every other thread from touching the table at all — the coarse
+lock we explicitly rejected, sneaking back in through a different door.
+fixed by making delete_at a free function operating on Arc<Mutex<Table>>
+directly instead of a method on an already-locked &mut Table, so it can
+drop the physical lock before blocking and reacquire after.
+
+## delete_at initially tombstoned the row physically — broke MVCC visibility
+first version called page.delete_row(slot) (the tombstone bit) the instant
+xmax got set. get_row skips dead slots, so the row became invisible to
+EVERYONE immediately, including the next transaction trying to check who
+holds it. found this via the concurrent test itself, not by inspection —
+both block-and-wait tests failed with RowNotFound instead of the expected
+conflict/success. real fix: xmax became a plain u64 sentinel (0 = unclaimed)
+instead of Option<u64>, guaranteeing fixed serialized length, which makes
+true in-place page overwrite safe (added Page::update_row for exactly this,
+strict same-length-only). row stays fully readable with its real xmax the
+whole time now, matching how postgres tuple headers actually work.
+
+## deadlock detection — wait-for chain, not a general graph
+delete_at only ever waits on ONE other transaction at a time, so the whole
+wait-for structure is just chains, not an arbitrary graph — detecting a
+cycle is just walking the chain from what you're about to wait on and
+checking if it leads back to yourself. cycle check and edge insertion
+happen under one unbroken lock hold, not two separate ones — otherwise two
+threads could each see "no cycle yet" and insert edges that together form
+one anyway.
+
+## BEGIN/COMMIT/ROLLBACK kept sqlparser types out of main.rs
+crumble-sql exposes a small transaction_control() helper instead of main.rs
+matching on sqlparser::ast::Statement directly — same "AST types never
+leak past lowering" rule, just extended to this one REPL-level check that
+happens before lowering even starts.
+
+## SELECT * expands AFTER execution, not at lowering time
+lowering has no Catalog access on purpose (kept decoupled). Project already
+gets the fully materialized RowSet before picking columns, and that RowSet
+already knows its own columns — so Projection::All just reuses whatever's
+already there instead of needing a schema lookup. free bonus: works
+correctly through joins with zero extra code, since a join's RowSet is
+already qualified (users.id, orders.total, ...) by the time Project sees it.

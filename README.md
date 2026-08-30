@@ -53,6 +53,7 @@ Documentation, specifications, research papers, books, and existing implementati
 
 **query execution**
 - [x] SELECT (seq scan, filter, project)
+- [x] SELECT * (wildcard expansion happens post-execution, reuses whatever columns the input already produced — works correctly through joins for free)
 - [x] INSERT
 - [x] UPDATE (delete + insert under the hood)
 - [x] DELETE
@@ -72,10 +73,13 @@ Documentation, specifications, research papers, books, and existing implementati
 - [ ] range scans through the index (WHERE col > x) — currently only exact equality
 - [ ] clustered/index-organized storage (secondary index only right now, see tradeoffs.md)
 
-**transactions**
-- [ ] MVCC
-- [ ] isolation levels
-- [ ] concurrent access (everything so far assumes one statement at a time)
+***transactions**
+- [x] MVCC (xmin/xmax row versioning, snapshot-based visibility)
+- [x] row-level locking (block-and-wait, matches Postgres's real default behavior)
+- [x] deadlock detection (wait-for chain cycle check, self-abort on detection)
+- [x] BEGIN/COMMIT/ROLLBACK (multi-statement transactions, autocommit when no explicit BEGIN)
+- [ ] isolation levels (currently always READ COMMITTED-equivalent behavior, no REPEATABLE READ/SERIALIZABLE)
+- [x] concurrent access (proven via real multi-threaded tests, not just claimed)
 
 **not started**
 - [ ] concurrency (single-threaded end to end right now)
