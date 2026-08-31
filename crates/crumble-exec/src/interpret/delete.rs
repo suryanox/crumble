@@ -1,5 +1,5 @@
 use crumble_ir::Expr;
-use crumble_storage::{Catalog, Row, Value, delete_at, value_to_index_key};
+use crumble_storage::{Catalog, Row, Value, delete_at};
 use crumble_tx::TransactionId;
 
 use crate::error::ExecError;
@@ -19,7 +19,7 @@ pub(super) fn delete(
         let located_rows = target.rows_with_location(xid)?;
         let columns: Vec<String> = target.columns().iter().map(|c| c.name.clone()).collect();
         (columns, located_rows)
-    }; // physical lock released here — matching below touches no shared state
+    };
 
     let mut to_delete: Vec<(u32, u16, Row)> = Vec::new();
     for ((page_index, slot), row) in located_rows {
@@ -37,23 +37,14 @@ pub(super) fn delete(
     }
     let deleted = to_delete.len() as i64;
 
-    let indexed_columns: Vec<(usize, String)> = columns
-        .iter()
-        .enumerate()
-        .filter_map(|(i, c)| catalog.index_for(table, c).map(|n| (i, n)))
-        .collect();
-
-    for (page_index, slot, row) in &to_delete {
-        for (col_pos, index_name) in &indexed_columns {
-            if let Some(key) = value_to_index_key(&row.values()[*col_pos]) {
-                let index_handle = catalog.index(index_name)?;
-                index_handle
-                    .lock()
-                    .unwrap()
-                    .delete(&key, *page_index, *slot)?;
-            }
-        }
-    }
+    // Note: no index cleanup here, deliberately. A deleted row's index
+    // entries become dead-but-harmless — is_visible() correctly filters
+    // them out at read time via row_at, same as Postgres, which also never
+    // removes index entries at DELETE time (only VACUUM does, once no
+    // transaction could possibly need the old version). Eagerly removing
+    // here was the actual bug: an aborted DELETE would leave the index
+    // permanently out of sync with the table, since nothing re-added the
+    // entry on rollback.
 
     Ok(RowSet::new(
         vec!["deleted".to_string()],
