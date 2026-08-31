@@ -63,6 +63,7 @@ Documentation, specifications, research papers, books, and existing implementati
 - [ ] index-accelerated RIGHT/FULL OUTER join (needs seen-set tracking on the indexed side, not just lookups)
 - [ ] subqueries
 - [ ] aggregates (COUNT/SUM/GROUP BY etc)
+- [x] DROP TABLE / DROP INDEX (with IF EXISTS, DROP TABLE cascades to dependent indexes)
 
 **indexing**
 - [x] B+tree (leaf pages hold data, internal pages route only)
