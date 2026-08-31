@@ -59,5 +59,13 @@ pub fn to_physical(plan: LogicalPlan) -> PhysicalPlan {
             on,
             kind,
         },
+        LogicalPlan::DropTable { table, if_exists } => PhysicalPlan::DropTable { table, if_exists },
+        LogicalPlan::DropIndex {
+            index_name,
+            if_exists,
+        } => PhysicalPlan::DropIndex {
+            index_name,
+            if_exists,
+        },
     }
 }

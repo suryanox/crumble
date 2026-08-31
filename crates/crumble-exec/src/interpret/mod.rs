@@ -1,5 +1,6 @@
 use crate::interpret::create::{create, create_index};
 use crate::interpret::delete::delete;
+use crate::interpret::drop_stmt::{drop_index, drop_table};
 use crate::interpret::filter::filter;
 use crate::interpret::indexnestedloopjoin::indexnestedloopjoin;
 use crate::interpret::indexscan::{indexscan, rangeindexscan};
@@ -21,6 +22,7 @@ mod seqscan;
 
 mod create;
 mod delete;
+mod drop_stmt;
 mod indexnestedloopjoin;
 mod indexscan;
 mod insert;
@@ -91,6 +93,11 @@ pub fn execute(
             kind,
             xid,
         ),
+        PhysicalPlan::DropTable { table, if_exists } => drop_table(catalog, table, *if_exists),
+        PhysicalPlan::DropIndex {
+            index_name,
+            if_exists,
+        } => drop_index(catalog, index_name, *if_exists),
     }
 }
 

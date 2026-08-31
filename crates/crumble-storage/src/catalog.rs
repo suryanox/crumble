@@ -6,6 +6,7 @@ use crumble_index::BTree;
 use crumble_tx::TransactionManager;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fs::remove_file;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, RwLock};
 
@@ -197,5 +198,58 @@ impl Catalog {
             .get(name)
             .cloned()
             .ok_or_else(|| StorageError::TableNotFound(name.to_string()))
+    }
+
+    pub fn drop_table(&self, name: &str, if_exists: bool) -> Result<(), StorageError> {
+        let mut tables = self.tables.write().unwrap();
+
+        if !tables.contains_key(name) {
+            if if_exists {
+                return Ok(());
+            }
+            return Err(StorageError::TableNotFound(name.to_string()));
+        }
+
+        tables.remove(name);
+        drop(tables);
+
+        let dependent_indexes: Vec<String> = {
+            let index_meta = self.index_meta.read().unwrap();
+            index_meta
+                .iter()
+                .filter(|(_, meta)| meta.table == name)
+                .map(|(name, _)| name.clone())
+                .collect()
+        };
+
+        for idx_name in dependent_indexes {
+            self.drop_table(&idx_name, true)?;
+        }
+
+        let _ = remove_file(self.data_dir.join(format!("{name}.tbl")));
+        let _ = remove_file(self.data_dir.join(format!("{name}.wal")));
+
+        self.save_meta()
+    }
+
+    pub fn drop_index(&self, name: &str, if_exists: bool) -> Result<(), StorageError> {
+        let mut indexes = self.indexes.write().unwrap();
+
+        if !indexes.contains_key(name) {
+            if if_exists {
+                return Ok(());
+            }
+            return Err(StorageError::TableNotFound(name.to_string()));
+        }
+
+        indexes.remove(name);
+        drop(indexes);
+
+        self.index_meta.write().unwrap().remove(name);
+
+        let _ = std::fs::remove_file(self.data_dir.join(format!("{name}.idx")));
+        let _ = std::fs::remove_file(self.data_dir.join(format!("{name}.idx.wal")));
+
+        self.save_meta()
     }
 }

@@ -49,6 +49,14 @@ pub enum LogicalPlan {
         on: Expr,
         kind: JoinKind,
     },
+    DropTable {
+        table: String,
+        if_exists: bool,
+    },
+    DropIndex {
+        index_name: String,
+        if_exists: bool,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]

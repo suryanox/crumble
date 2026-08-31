@@ -67,6 +67,14 @@ fn fold_plan(plan: LogicalPlan) -> LogicalPlan {
             on: fold_expr(on),
             kind,
         },
+        LogicalPlan::DropTable { table, if_exists } => LogicalPlan::DropTable { table, if_exists },
+        LogicalPlan::DropIndex {
+            index_name,
+            if_exists,
+        } => LogicalPlan::DropIndex {
+            index_name,
+            if_exists,
+        },
     }
 }
 

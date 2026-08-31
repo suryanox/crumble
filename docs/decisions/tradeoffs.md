@@ -386,3 +386,19 @@ already knows its own columns — so Projection::All just reuses whatever's
 already there instead of needing a schema lookup. free bonus: works
 correctly through joins with zero extra code, since a join's RowSet is
 already qualified (users.id, orders.total, ...) by the time Project sees it.
+
+## fixed a real rollback/index consistency bug — eager index deletes were wrong
+DELETE and the old-half of UPDATE used to call index.delete() immediately at
+execution time. if that transaction later rolled back, the row itself
+correctly became visible again (xmax reverts), but the index entry was
+already gone forever — nothing re-added it. SeqScan and IndexScan could give
+different answers for the same rolled-back DELETE. turns out the fix wasn't
+adding an undo mechanism, it was removing code: postgres itself never
+physically removes an index entry at DELETE time either, only VACUUM does,
+much later, once no transaction could possibly still need the old version.
+index reads stay correct in the meantime purely because they go through
+row_at + is_visible, which is already the single source of truth for
+whether a row counts. stopped calling index.delete() in both places — a
+deleted/updated-away row's old index entry just becomes the same kind of
+harmless garbage an aborted INSERT's entry already was, cleaned up later by
+compaction (already a known, deferred gap).
