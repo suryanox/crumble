@@ -1,4 +1,4 @@
-# guide.md — what the pieces actually are
+# guide — what the pieces actually are
 
 quick definitions, not a tutorial. if you already know what a B-tree is,
 skip most of this — it's here for when I (or someone else) forgets.
@@ -68,7 +68,7 @@ free to compute (append-only file).
 the LSN of the last WAL record that's reflected in a given page, stamped
 into the page's own header on every write. on WAL replay: if a page's
 stamped LSN is already >= a record's LSN, skip that record — it's already
-durably on disk (probably via buffer pool eviction flushing it
+durable on disk (probably via buffer pool eviction flushing it
 independently of any checkpoint). without this, replay would duplicate
 writes that were already safe.
 

@@ -16,9 +16,9 @@ Every subsystem is built incrementally, measured, tested, and documented. If I c
 
 * [Architecture](docs/architecture/README.md)
 * [Design](docs/design/README.md)
-* [Decisions & tradeoffs](docs/decisions/tradeoffs.md)
-* [Guide](docs/guide.md)
-* [Status & Features](STATUS.md) — what's built, what's next
+* [Decisions & tradeoffs](docs/decisions/README.md)
+* [Guide](docs/guide/README.md)
+* [Status & Features](docs/status/README.md)
 
 ## Development Philosophy
 

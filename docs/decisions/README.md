@@ -1,4 +1,4 @@
-# tradeoffs.md — why i did things this way
+# tradeoffs — why i did things this way
 
 notes to self. not a spec, just the reasoning so I don't forget it later.
 
@@ -48,7 +48,7 @@ one place instead of hunting down every call site later.
 
 ## slot_count and free_space_offset live inside the page bytes, not next to them
 first version had them as separate struct fields sitting beside a raw byte
-array — wrong, caught it myself. a page has to serialize to disk as
+array — wrong, caught it myself. a page has to serialize to disk as is
 literally just those bytes. if the header lives outside the array there's
 nothing on disk to reconstruct it from after a restart.
 
