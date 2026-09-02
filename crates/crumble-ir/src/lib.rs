@@ -12,5 +12,5 @@ pub use expr::{BinaryOperator, Expr, Literal};
 pub use lower::lower;
 pub use physical::PhysicalPlan;
 pub use plan::LogicalPlan;
-pub use plan::{JoinKind, Projection};
+pub use plan::{AggFunc, AggregateExpr, JoinKind, Projection};
 pub use to_physical::to_physical;

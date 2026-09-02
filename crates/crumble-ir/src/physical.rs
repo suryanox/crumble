@@ -1,6 +1,6 @@
 use crate::expr::Expr;
 use crate::plan::{JoinKind, Projection};
-use crate::{ColumnDef, Literal};
+use crate::{AggregateExpr, ColumnDef, Literal};
 
 /**
 * This tells how to actually run it which strategy
@@ -79,5 +79,10 @@ pub enum PhysicalPlan {
     DropIndex {
         index_name: String,
         if_exists: bool,
+    },
+    Aggregate {
+        input: Box<PhysicalPlan>,
+        group_by: Vec<String>,
+        aggregates: Vec<AggregateExpr>,
     },
 }

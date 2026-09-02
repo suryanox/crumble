@@ -4,7 +4,7 @@
 
 ## Parsing / IR
 
-- [x] SQL parsing (via `sqlparser`, not hand-rolled — see tradeoffs.md)
+- [x] SQL parsing (via `sqlparser`, not hand-rolled — see [tradeoffs](../decisions/README.md))
 - [x] AST -> Logical IR lowering
 - [x] Logical IR -> Physical IR
 - [x] constant folding (optimizer pass)
@@ -45,7 +45,7 @@
 - [x] index has its own WAL (crash-safe, same pattern as table storage)
 - [x] optimizer rewrite: `WHERE col = literal` -> IndexScan when an index exists
 - [ ] range scans through the index (WHERE col > x) — currently only exact equality
-- [ ] clustered/index-organized storage (secondary index only right now, see tradeoffs.md)
+- [ ] clustered/index-organized storage (secondary index only right now, see [tradeoffs](../decisions/README.md))
 
 ## Transactions
 

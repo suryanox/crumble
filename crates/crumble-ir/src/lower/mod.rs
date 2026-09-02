@@ -1,3 +1,4 @@
+mod aggregate;
 mod create;
 mod create_index;
 mod delete;

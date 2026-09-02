@@ -75,6 +75,15 @@ fn fold_plan(plan: LogicalPlan) -> LogicalPlan {
             index_name,
             if_exists,
         },
+        LogicalPlan::Aggregate {
+            input,
+            group_by,
+            aggregates,
+        } => LogicalPlan::Aggregate {
+            input: Box::new(fold_plan(*input)),
+            group_by,
+            aggregates,
+        },
     }
 }
 

@@ -67,5 +67,14 @@ pub fn to_physical(plan: LogicalPlan) -> PhysicalPlan {
             index_name,
             if_exists,
         },
+        LogicalPlan::Aggregate {
+            input,
+            group_by,
+            aggregates,
+        } => PhysicalPlan::Aggregate {
+            input: Box::new(to_physical(*input)),
+            group_by,
+            aggregates,
+        },
     }
 }
