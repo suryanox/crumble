@@ -1,3 +1,4 @@
+use crate::interpret::aggregate::aggregate;
 use crate::interpret::create::{create, create_index};
 use crate::interpret::delete::delete;
 use crate::interpret::drop_stmt::{drop_index, drop_table};
@@ -20,6 +21,7 @@ mod order;
 mod project;
 mod seqscan;
 
+mod aggregate;
 mod create;
 mod delete;
 mod drop_stmt;
@@ -98,6 +100,11 @@ pub fn execute(
             index_name,
             if_exists,
         } => drop_index(catalog, index_name, *if_exists),
+        PhysicalPlan::Aggregate {
+            input,
+            group_by,
+            aggregates,
+        } => aggregate(catalog, input, group_by, aggregates, xid),
     }
 }
 

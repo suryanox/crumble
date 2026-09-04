@@ -1,3 +1,4 @@
+use crate::lower::aggregate::{is_aggregate_query, lower_aggregate};
 use crate::lower::expr::lower_expr;
 use crate::plan::{JoinKind, Projection};
 use crate::{LogicalPlan, LowerError};
@@ -21,8 +22,15 @@ fn lower_select(select: &Select) -> Result<LogicalPlan, LowerError> {
         None => base,
     };
 
-    let columns = lower_projection(&select.projection)?;
+    if is_aggregate_query(select) {
+        let (aggregate_plan, output_columns) = lower_aggregate(select, filtered)?;
+        return Ok(LogicalPlan::Project {
+            input: Box::new(aggregate_plan),
+            columns: output_columns,
+        });
+    }
 
+    let columns = lower_projection(&select.projection)?;
     Ok(LogicalPlan::Project {
         input: Box::new(filtered),
         columns,
