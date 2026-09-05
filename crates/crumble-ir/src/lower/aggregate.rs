@@ -3,8 +3,9 @@ use sqlparser::ast::{
     Select, SelectItem,
 };
 
+use crate::lower::expr::{lower_binary_operator, lower_value};
 use crate::plan::{AggFunc, AggregateExpr};
-use crate::{LogicalPlan, LowerError, Projection};
+use crate::{Expr, LogicalPlan, LowerError, Projection};
 
 pub(super) fn is_aggregate_query(select: &Select) -> bool {
     let has_group_by =
@@ -136,10 +137,99 @@ pub(super) fn lower_aggregate(
         }
     }
 
-    let plan = LogicalPlan::Aggregate {
+    let mut having_only_aggregates = Vec::new();
+    if let Some(having_expr) = &select.having {
+        collect_having_aggregates(having_expr, &aggregates, &mut having_only_aggregates)?;
+    }
+    let all_aggregates: Vec<AggregateExpr> = aggregates
+        .into_iter()
+        .chain(having_only_aggregates)
+        .collect();
+
+    let aggregate_plan = LogicalPlan::Aggregate {
         input: Box::new(input),
         group_by,
-        aggregates,
+        aggregates: all_aggregates,
     };
+
+    let plan = match &select.having {
+        Some(having_expr) => LogicalPlan::Filter {
+            input: Box::new(aggregate_plan),
+            predicate: lower_having_predicate(having_expr)?,
+        },
+        None => aggregate_plan,
+    };
+
     Ok((plan, Projection::Columns(output_columns)))
+}
+
+/// Walks a HAVING predicate, collecting any aggregate function calls not
+/// already present (by alias) among `existing` — these must still be
+/// computed by the Aggregate node even though they won't appear in the
+/// final SELECT output (e.g. `... HAVING SUM(age) > 100` with no SUM(age)
+/// in the SELECT list at all).
+fn collect_having_aggregates(
+    expr: &SqlExpr,
+    existing: &[AggregateExpr],
+    collected: &mut Vec<AggregateExpr>,
+) -> Result<(), LowerError> {
+    match expr {
+        SqlExpr::Function(func) => {
+            let agg = lower_aggregate_func(func, None)?;
+            let already_present = existing
+                .iter()
+                .chain(collected.iter())
+                .any(|a| a.alias == agg.alias);
+            if !already_present {
+                collected.push(agg);
+            }
+            Ok(())
+        }
+        SqlExpr::BinaryOp { left, right, .. } => {
+            collect_having_aggregates(left, existing, collected)?;
+            collect_having_aggregates(right, existing, collected)
+        }
+        SqlExpr::IsNull(inner) | SqlExpr::IsNotNull(inner) => {
+            collect_having_aggregates(inner, existing, collected)
+        }
+        _ => Ok(()),
+    }
+}
+
+/// Lowers a HAVING predicate, converting each aggregate function call into
+/// a reference to its already-computed output column (same alias
+/// convention as lower_aggregate_func) instead of a fresh function call —
+/// by the time HAVING runs, Aggregate has already computed it.
+fn lower_having_predicate(expr: &SqlExpr) -> Result<Expr, LowerError> {
+    match expr {
+        SqlExpr::Function(func) => {
+            let agg = lower_aggregate_func(func, None)?;
+            Ok(Expr::Column(agg.alias))
+        }
+        SqlExpr::Identifier(ident) => Ok(Expr::Column(ident.value.clone())),
+        SqlExpr::CompoundIdentifier(parts) => Ok(Expr::Column(
+            parts
+                .iter()
+                .map(|p| p.value.as_str())
+                .collect::<Vec<_>>()
+                .join("."),
+        )),
+        SqlExpr::Value(value_with_span) => lower_value(&value_with_span.value).map(Expr::Literal),
+        SqlExpr::BinaryOp { left, op, right } => Ok(Expr::BinaryOp {
+            left: Box::new(lower_having_predicate(left)?),
+            op: lower_binary_operator(op)?,
+            right: Box::new(lower_having_predicate(right)?),
+        }),
+        SqlExpr::IsNull(inner) => Ok(Expr::IsNull {
+            expr: Box::new(lower_having_predicate(inner)?),
+            negated: false,
+        }),
+        SqlExpr::IsNotNull(inner) => Ok(Expr::IsNull {
+            expr: Box::new(lower_having_predicate(inner)?),
+            negated: true,
+        }),
+        other => Err(LowerError::Unsupported(format!(
+            "HAVING expression: {other:?}"
+        ))),
+    }
 }
