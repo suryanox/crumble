@@ -168,6 +168,43 @@ mod tests {
         (dir, catalog, xid)
     }
 
+    fn seeded_pets_catalog() -> (tempfile::TempDir, Catalog, u64) {
+        let dir = tempfile::tempdir().unwrap();
+        let tx_manager = Arc::new(TransactionManager::new());
+        let catalog = Catalog::open(dir.path(), Arc::clone(&tx_manager)).unwrap();
+        let xid = tx_manager.begin();
+
+        catalog
+            .create_table(
+                "pets",
+                vec![col("name", ColumnType::String), col("age", ColumnType::Int)],
+            )
+            .unwrap();
+        let handle = catalog.table("pets").unwrap();
+        let mut pets = handle.lock().unwrap();
+        for (name, age) in [
+            ("rex", Some(3)),
+            ("luna", Some(3)),
+            ("milo", Some(7)),
+            ("gus", Some(7)),
+            ("bella", Some(7)),
+            ("ghost", None),
+        ] {
+            let age_value = match age {
+                Some(n) => Value::Int(n),
+                None => Value::Null,
+            };
+            pets.insert(
+                Row::new(vec![Value::String(name.to_string()), age_value]),
+                xid,
+            )
+            .unwrap();
+        }
+        drop(pets);
+
+        (dir, catalog, xid)
+    }
+
     #[test]
     fn executes_filtered_projection() -> Result<(), Box<dyn std::error::Error>> {
         let (_dir, catalog, xid) = seeded_catalog();
@@ -484,6 +521,165 @@ mod tests {
             "matched rows must not be duplicated by either padding pass"
         );
 
+        Ok(())
+    }
+
+    #[test]
+    fn having_filters_on_aggregate_not_in_select_list() -> Result<(), Box<dyn std::error::Error>> {
+        let (_dir, catalog, xid) = seeded_pets_catalog();
+        let result = run(
+            "SELECT age FROM pets WHERE age IS NOT NULL GROUP BY age HAVING SUM(age) > 10",
+            &catalog,
+            xid,
+        )?;
+
+        assert_eq!(
+            result.columns(),
+            &["age".to_string()],
+            "SUM(age) must not appear in output — it was never SELECTed"
+        );
+        assert_eq!(
+            result.rows().len(),
+            1,
+            "only age=7's group sums to 21, over 10"
+        );
+        assert_eq!(result.rows()[0].values()[0], Value::Int(7));
+        Ok(())
+    }
+
+    #[test]
+    fn sum_and_avg_per_group() -> Result<(), Box<dyn std::error::Error>> {
+        let (_dir, catalog, xid) = seeded_pets_catalog();
+
+        let result = run(
+            "SELECT age, SUM(age), AVG(age) FROM pets WHERE age IS NOT NULL GROUP BY age",
+            &catalog,
+            xid,
+        )?;
+
+        for row in result.rows() {
+            let age = &row.values()[0];
+            if *age == Value::Int(3) {
+                assert_eq!(row.values()[1], Value::Int(6));
+                assert_eq!(row.values()[2], Value::Float(3.0));
+            } else if *age == Value::Int(7) {
+                assert_eq!(row.values()[1], Value::Int(21));
+                assert_eq!(row.values()[2], Value::Float(7.0));
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn min_max_ignore_nulls() -> Result<(), Box<dyn std::error::Error>> {
+        let (_dir, catalog, xid) = seeded_pets_catalog();
+
+        let result = run("SELECT MIN(age), MAX(age) FROM pets", &catalog, xid)?;
+
+        assert_eq!(result.rows()[0].values()[0], Value::Int(3));
+        assert_eq!(result.rows()[0].values()[1], Value::Int(7));
+        Ok(())
+    }
+
+    #[test]
+    fn sum_of_all_null_group_is_null_not_zero() -> Result<(), Box<dyn std::error::Error>> {
+        let (_dir, catalog, xid) = seeded_pets_catalog();
+
+        let result = run(
+            "SELECT SUM(age) FROM pets WHERE name = 'ghost'",
+            &catalog,
+            xid,
+        )?;
+
+        assert_eq!(
+            result.rows()[0].values()[0],
+            Value::Null,
+            "SUM over an all-NULL group must be NULL, not 0"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn having_filters_on_aggregate_already_in_select() -> Result<(), Box<dyn std::error::Error>> {
+        let (_dir, catalog, xid) = seeded_pets_catalog();
+
+        let result = run(
+            "SELECT age, COUNT(*) FROM pets WHERE age IS NOT NULL GROUP BY age HAVING COUNT(*) > 2",
+            &catalog,
+            xid,
+        )?;
+
+        assert_eq!(result.rows().len(), 1, "only age=7 has more than 2 pets");
+        assert_eq!(result.rows()[0].values()[0], Value::Int(7));
+        Ok(())
+    }
+
+    #[test]
+    fn group_by_produces_correct_counts_per_group() -> Result<(), Box<dyn std::error::Error>> {
+        let (_dir, catalog, xid) = seeded_pets_catalog();
+
+        let result = run(
+            "SELECT age, COUNT(*) FROM pets WHERE age IS NOT NULL GROUP BY age",
+            &catalog,
+            xid,
+        )?;
+
+        assert_eq!(result.rows().len(), 2, "two distinct non-null ages");
+        for row in result.rows() {
+            let age = &row.values()[0];
+            let count = &row.values()[1];
+            if *age == Value::Int(3) {
+                assert_eq!(*count, Value::Int(2));
+            } else if *age == Value::Int(7) {
+                assert_eq!(*count, Value::Int(3));
+            } else {
+                panic!("unexpected age in group: {age:?}");
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn count_star_on_empty_table_returns_one_zero_row() -> Result<(), Box<dyn std::error::Error>> {
+        let (_dir, catalog, xid) = seeded_pets_catalog();
+        catalog.create_table("empty_t", vec![col("x", ColumnType::Int)])?;
+
+        let result = run("SELECT COUNT(*) FROM empty_t", &catalog, xid)?;
+
+        assert_eq!(
+            result.rows().len(),
+            1,
+            "must return one row, not zero, even over an empty table"
+        );
+        assert_eq!(result.rows()[0].values()[0], Value::Int(0));
+        Ok(())
+    }
+
+    #[test]
+    fn count_star_counts_every_row_including_nulls() -> Result<(), Box<dyn std::error::Error>> {
+        let (_dir, catalog, xid) = seeded_pets_catalog();
+
+        let result = run("SELECT COUNT(*) FROM pets", &catalog, xid)?;
+
+        assert_eq!(
+            result.rows()[0].values()[0],
+            Value::Int(6),
+            "COUNT(*) must include ghost's NULL age row"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn count_column_ignores_nulls() -> Result<(), Box<dyn std::error::Error>> {
+        let (_dir, catalog, xid) = seeded_pets_catalog();
+
+        let result = run("SELECT COUNT(age) FROM pets", &catalog, xid)?;
+
+        assert_eq!(
+            result.rows()[0].values()[0],
+            Value::Int(5),
+            "COUNT(age) must exclude ghost's NULL"
+        );
         Ok(())
     }
 }
