@@ -1,5 +1,5 @@
 use crate::interpret::aggregate::aggregate;
-use crate::interpret::create::{create, create_index};
+use crate::interpret::create::{create, create_index, vacuum_table};
 use crate::interpret::delete::delete;
 use crate::interpret::drop_stmt::{drop_index, drop_table};
 use crate::interpret::filter::filter;
@@ -105,6 +105,7 @@ pub fn execute(
             group_by,
             aggregates,
         } => aggregate(catalog, input, group_by, aggregates, xid),
+        PhysicalPlan::VacuumTable { table } => vacuum_table(catalog, table),
     }
 }
 

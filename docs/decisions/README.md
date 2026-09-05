@@ -402,3 +402,35 @@ whether a row counts. stopped calling index.delete() in both places — a
 deleted/updated-away row's old index entry just becomes the same kind of
 harmless garbage an aborted INSERT's entry already was, cleaned up later by
 compaction (already a known, deferred gap).
+
+
+## aggregates — linear scan grouping, not a hashmap
+Value::Float can't cleanly implement Hash (NaN breaks the Eq it needs too) —
+same reason Float was already excluded from IndexKey. rather than exclude
+Float from GROUP BY entirely (a real, if unusual, SQL case), grouping does
+a linear Vec scan instead of a HashMap — O(n * groups) instead of O(n), but
+correct for every type. worth hashing properly later if grouping ever
+becomes a hot path, not urgent now.
+
+## no GROUP BY still means one implicit group, even over zero rows
+SELECT COUNT(*) FROM empty_table must return one row (count=0), not zero
+rows. handled as a special case: no GROUP BY + zero groups formed from the
+input -> push one empty-key group before computing aggregates.
+
+## SUM/AVG/MIN/MAX return NULL over an all-NULL or empty group, not 0
+matches real SQL, same "surprising but correct" bucket as col = NULL always
+being false. COUNT(*) counts every row including NULLs; COUNT(col) only
+counts non-null values of that column — different rule for COUNT
+specifically vs the other four.
+
+## Aggregate produces a wide row, Project narrows it — no new projection logic
+Aggregate always outputs every GROUP BY column plus every aggregate result,
+regardless of SELECT list order. the existing Project node (unchanged) sits
+on top and picks/reorders whatever the SELECT list actually asked for —
+same Filter-then-Project composition pattern, Aggregate just slots in as
+another thing Project can sit on.
+
+## no validation that SELECT list columns are grouped or aggregated
+real SQL rejects `SELECT name, SUM(age) FROM users GROUP BY city` (name is
+ambiguous per group). we don't enforce this — trust valid SQL. named gap,
+not silently wrong, just unchecked.

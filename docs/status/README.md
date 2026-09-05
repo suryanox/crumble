@@ -35,6 +35,9 @@
 - [ ] index-accelerated RIGHT/FULL OUTER join (needs seen-set tracking on the indexed side, not just lookups)
 - [ ] subqueries
 - [ ] aggregates (COUNT/SUM/GROUP BY etc)
+- - [x] aggregates: COUNT, SUM, AVG, MIN, MAX, GROUP BY (linear-scan grouping, not hashed — Value::Float can't cleanly implement Hash/Eq for NaN reasons)
+- [ ] HAVING clause
+- [ ] SELECT-list/GROUP BY validation (ungrouped non-aggregated columns aren't rejected)
 - [x] DROP TABLE / DROP INDEX (with IF EXISTS, DROP TABLE cascades to dependent indexes)
 
 ## Indexing

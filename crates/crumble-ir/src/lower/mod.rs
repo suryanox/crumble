@@ -7,6 +7,7 @@ mod expr;
 mod insert;
 mod select;
 mod update;
+mod vacuum_stmt;
 
 use crate::lower::create::lower_create;
 use crate::lower::create_index::lower_create_index;
@@ -15,6 +16,7 @@ use crate::lower::drop_stmt::lower_drop;
 use crate::lower::insert::lower_insert;
 use crate::lower::select::lower_select_expr;
 use crate::lower::update::lower_update;
+use crate::lower::vacuum_stmt::lower_vacuum;
 use crate::{LogicalPlan, LowerError};
 use crumble_sql::Ast;
 use sqlparser::ast::Statement;
@@ -42,6 +44,7 @@ fn lower_statement(statement: &Statement) -> Result<LogicalPlan, LowerError> {
             names,
             ..
         } => lower_drop(object_type, *if_exists, names),
+        Statement::Vacuum(vacuum) => lower_vacuum(vacuum),
         other => Err(LowerError::Unsupported(format!("statement: {other:?}"))),
     }
 }

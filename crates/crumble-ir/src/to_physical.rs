@@ -76,5 +76,6 @@ pub fn to_physical(plan: LogicalPlan) -> PhysicalPlan {
             group_by,
             aggregates,
         },
+        LogicalPlan::VacuumTable { table } => PhysicalPlan::VacuumTable { table },
     }
 }

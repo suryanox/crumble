@@ -62,6 +62,9 @@ pub enum LogicalPlan {
         group_by: Vec<String>,
         aggregates: Vec<AggregateExpr>,
     },
+    VacuumTable {
+        table: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]

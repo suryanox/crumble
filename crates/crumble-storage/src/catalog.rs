@@ -247,9 +247,29 @@ impl Catalog {
 
         self.index_meta.write().unwrap().remove(name);
 
-        let _ = std::fs::remove_file(self.data_dir.join(format!("{name}.idx")));
-        let _ = std::fs::remove_file(self.data_dir.join(format!("{name}.idx.wal")));
+        let _ = remove_file(self.data_dir.join(format!("{name}.idx")));
+        let _ = remove_file(self.data_dir.join(format!("{name}.idx.wal")));
 
         self.save_meta()
+    }
+
+    pub fn vacuum_table(&self, table: &str) -> Result<(), StorageError> {
+        self.table(table)?; // just to surface TableNotFound early if it doesn't exist
+
+        let dependent_indexes: Vec<(String, String)> = {
+            let index_meta = self.index_meta.read().unwrap();
+            index_meta
+                .iter()
+                .filter(|(_, meta)| meta.table == table)
+                .map(|(idx_name, meta)| (idx_name.clone(), meta.column.clone()))
+                .collect()
+        };
+
+        for (idx_name, column) in dependent_indexes {
+            self.drop_index(&idx_name, true)?;
+            self.create_index(&idx_name, table, &column)?;
+        }
+
+        Ok(())
     }
 }

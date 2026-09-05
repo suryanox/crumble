@@ -35,3 +35,8 @@ pub(super) fn create_index(
     catalog.create_index(index_name, table, column)?;
     Ok(RowSet::new(Vec::new(), Vec::new()))
 }
+
+pub(super) fn vacuum_table(catalog: &Catalog, table: &str) -> Result<RowSet, ExecError> {
+    catalog.vacuum_table(table)?;
+    Ok(RowSet::new(Vec::new(), Vec::new()))
+}

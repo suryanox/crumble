@@ -85,4 +85,7 @@ pub enum PhysicalPlan {
         group_by: Vec<String>,
         aggregates: Vec<AggregateExpr>,
     },
+    VacuumTable {
+        table: String,
+    },
 }
