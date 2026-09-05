@@ -149,6 +149,11 @@ dependencies = [
 [[package]]
 name = "crumble-tx"
 version = "0.1.0"
+dependencies = [
+ "bincode",
+ "serde",
+ "tempfile",
+]
 
 [[package]]
 name = "crumble-wal"

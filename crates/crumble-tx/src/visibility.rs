@@ -45,20 +45,23 @@ mod tests {
 
     #[test]
     fn legacy_zero_xmin_always_visible() {
-        let manager = TransactionManager::new();
+        let dir = tempfile::tempdir().unwrap();
+        let manager = TransactionManager::open(dir.path().join("tx.log")).unwrap();
         assert!(is_visible(0, None, 999, &manager));
     }
 
     #[test]
     fn own_uncommitted_insert_is_visible_to_self() {
-        let manager = TransactionManager::new();
+        let dir = tempfile::tempdir().unwrap();
+        let manager = TransactionManager::open(dir.path().join("tx.log")).unwrap();
         let xid = manager.begin();
         assert!(is_visible(xid, None, xid, &manager));
     }
 
     #[test]
     fn other_uncommitted_insert_is_invisible() {
-        let manager = TransactionManager::new();
+        let dir = tempfile::tempdir().unwrap();
+        let manager = TransactionManager::open(dir.path().join("tx.log")).unwrap();
         let writer = manager.begin();
         let reader = manager.begin();
         assert!(!is_visible(writer, None, reader, &manager));
@@ -66,7 +69,8 @@ mod tests {
 
     #[test]
     fn committed_insert_is_visible_to_everyone() {
-        let manager = TransactionManager::new();
+        let dir = tempfile::tempdir().unwrap();
+        let manager = TransactionManager::open(dir.path().join("tx.log")).unwrap();
         let writer = manager.begin();
         manager.commit(writer);
         let reader = manager.begin();
@@ -75,14 +79,16 @@ mod tests {
 
     #[test]
     fn own_uncommitted_delete_hides_row_from_self() {
-        let manager = TransactionManager::new();
+        let dir = tempfile::tempdir().unwrap();
+        let manager = TransactionManager::open(dir.path().join("tx.log")).unwrap();
         let xid = manager.begin();
         assert!(!is_visible(0, Some(xid), xid, &manager));
     }
 
     #[test]
     fn other_uncommitted_delete_does_not_hide_row_read_committed() {
-        let manager = TransactionManager::new();
+        let dir = tempfile::tempdir().unwrap();
+        let manager = TransactionManager::open(dir.path().join("tx.log")).unwrap();
         let deleter = manager.begin();
         let reader = manager.begin();
         assert!(is_visible(0, Some(deleter), reader, &manager));
@@ -90,7 +96,8 @@ mod tests {
 
     #[test]
     fn committed_delete_hides_row_from_everyone() {
-        let manager = TransactionManager::new();
+        let dir = tempfile::tempdir().unwrap();
+        let manager = TransactionManager::open(dir.path().join("tx.log")).unwrap();
         let deleter = manager.begin();
         manager.commit(deleter);
         let reader = manager.begin();
@@ -99,7 +106,8 @@ mod tests {
 
     #[test]
     fn aborted_delete_leaves_row_visible() {
-        let manager = TransactionManager::new();
+        let dir = tempfile::tempdir().unwrap();
+        let manager = TransactionManager::open(dir.path().join("tx.log")).unwrap();
         let deleter = manager.begin();
         manager.abort(deleter);
         let reader = manager.begin();

@@ -13,8 +13,14 @@ use crumble_sql::{TransactionControl, parse, transaction_control};
 use crumble_tx::TransactionId;
 
 fn seeded_catalog() -> Result<Catalog, StorageError> {
-    let tx_manager = Arc::new(TransactionManager::new());
-    Catalog::open("./crumble-data", tx_manager)
+    let data_dir = "./crumble-data";
+    std::fs::create_dir_all(data_dir).map_err(StorageError::Io)?;
+
+    let tx_manager = Arc::new(
+        TransactionManager::open(format!("{data_dir}/transactions.log"))
+            .expect("transaction log must open"),
+    );
+    Catalog::open(data_dir, tx_manager)
 }
 
 const RESET: &str = "\x1b[0m";

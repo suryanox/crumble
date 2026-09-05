@@ -310,7 +310,9 @@ mod tests {
 
     fn temp_table(columns: Vec<ColumnDef>) -> (tempfile::TempDir, Table, TransactionId) {
         let dir = tempfile::tempdir().unwrap();
-        let tx_manager = Arc::new(TransactionManager::new());
+        let tx_manager = Arc::new(
+            TransactionManager::open(dir.path().join("tx.log")).expect("transaction log must open"),
+        );
         let table = Table::open("users", columns, dir.path(), Arc::clone(&tx_manager)).unwrap();
         let xid = tx_manager.begin();
         (dir, table, xid)
@@ -344,7 +346,9 @@ mod tests {
     #[test]
     fn recovers_dirty_writes_after_simulated_crash() -> Result<(), StorageError> {
         let dir = tempfile::tempdir()?;
-        let tx_manager = Arc::new(TransactionManager::new());
+        let tx_manager = Arc::new(
+            TransactionManager::open(dir.path().join("tx.log")).expect("transaction log must open"),
+        );
         let xid = tx_manager.begin();
 
         {
@@ -380,7 +384,9 @@ mod tests {
     #[test]
     fn replay_does_not_duplicate_already_flushed_rows() -> Result<(), StorageError> {
         let dir = tempfile::tempdir()?;
-        let tx_manager = Arc::new(TransactionManager::new());
+        let tx_manager = Arc::new(
+            TransactionManager::open(dir.path().join("tx.log")).expect("transaction log must open"),
+        );
         let xid = tx_manager.begin();
 
         {
@@ -418,46 +424,9 @@ mod tests {
     #[test]
     fn concurrent_delete_blocks_then_conflicts_after_commit() -> Result<(), StorageError> {
         let dir = tempfile::tempdir().unwrap();
-        let tx_manager = Arc::new(TransactionManager::new());
-
-        let setup_xid = tx_manager.begin();
-        let table = Arc::new(Mutex::new(Table::open(
-            "users",
-            vec![col("name", ColumnType::String)],
-            dir.path(),
-            Arc::clone(&tx_manager),
-        )?));
-        let (page_index, slot) = {
-            let mut t = table.lock().unwrap();
-            t.insert(
-                Row::new(vec![Value::String("alice".to_string())]),
-                setup_xid,
-            )?
-        };
-        tx_manager.commit(setup_xid);
-
-        let xid_a = tx_manager.begin();
-        delete_at(&table, page_index, slot, xid_a)?; // A claims the row, still in-progress
-
-        let xid_b = tx_manager.begin();
-        let table_for_b = Arc::clone(&table);
-        let handle = thread::spawn(move || delete_at(&table_for_b, page_index, slot, xid_b));
-
-        thread::sleep(Duration::from_millis(50)); // let B actually reach wait_for and block
-        tx_manager.commit(xid_a); // wakes B
-
-        let result = handle.join().unwrap();
-        assert!(
-            matches!(result, Err(StorageError::ConcurrentModification)),
-            "B must wake and find A's committed delete already won"
+        let tx_manager = Arc::new(
+            TransactionManager::open(dir.path().join("tx.log")).expect("transaction log must open"),
         );
-        Ok(())
-    }
-
-    #[test]
-    fn concurrent_delete_blocks_then_succeeds_after_abort() -> Result<(), StorageError> {
-        let dir = tempfile::tempdir().unwrap();
-        let tx_manager = Arc::new(TransactionManager::new());
 
         let setup_xid = tx_manager.begin();
         let table = Arc::new(Mutex::new(Table::open(
@@ -483,7 +452,48 @@ mod tests {
         let handle = thread::spawn(move || delete_at(&table_for_b, page_index, slot, xid_b));
 
         thread::sleep(Duration::from_millis(50));
-        tx_manager.abort(xid_a); // A's delete never happened — B should be free to proceed
+        tx_manager.commit(xid_a);
+
+        let result = handle.join().unwrap();
+        assert!(
+            matches!(result, Err(StorageError::ConcurrentModification)),
+            "B must wake and find A's committed delete already won"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn concurrent_delete_blocks_then_succeeds_after_abort() -> Result<(), StorageError> {
+        let dir = tempfile::tempdir().unwrap();
+        let tx_manager = Arc::new(
+            TransactionManager::open(dir.path().join("tx.log")).expect("transaction log must open"),
+        );
+
+        let setup_xid = tx_manager.begin();
+        let table = Arc::new(Mutex::new(Table::open(
+            "users",
+            vec![col("name", ColumnType::String)],
+            dir.path(),
+            Arc::clone(&tx_manager),
+        )?));
+        let (page_index, slot) = {
+            let mut t = table.lock().unwrap();
+            t.insert(
+                Row::new(vec![Value::String("alice".to_string())]),
+                setup_xid,
+            )?
+        };
+        tx_manager.commit(setup_xid);
+
+        let xid_a = tx_manager.begin();
+        delete_at(&table, page_index, slot, xid_a)?;
+
+        let xid_b = tx_manager.begin();
+        let table_for_b = Arc::clone(&table);
+        let handle = thread::spawn(move || delete_at(&table_for_b, page_index, slot, xid_b));
+
+        thread::sleep(Duration::from_millis(50));
+        tx_manager.abort(xid_a);
 
         let result = handle.join().unwrap();
         assert!(
@@ -496,7 +506,9 @@ mod tests {
     #[test]
     fn concurrent_inserts_into_different_tables_do_not_corrupt_data() -> Result<(), StorageError> {
         let dir = tempfile::tempdir()?;
-        let tx_manager = Arc::new(TransactionManager::new());
+        let tx_manager = Arc::new(
+            TransactionManager::open(dir.path().join("tx.log")).expect("transaction log must open"),
+        );
 
         let mut handles = Vec::new();
         for table_num in 0..4 {
@@ -529,7 +541,9 @@ mod tests {
     #[test]
     fn deadlock_is_detected_not_hung() -> Result<(), StorageError> {
         let dir = tempfile::tempdir().unwrap();
-        let tx_manager = Arc::new(TransactionManager::new());
+        let tx_manager = Arc::new(
+            TransactionManager::open(dir.path().join("tx.log")).expect("transaction log must open"),
+        );
 
         let setup = tx_manager.begin();
         let table = Arc::new(Mutex::new(Table::open(
@@ -551,16 +565,16 @@ mod tests {
         let xid_a = tx_manager.begin();
         let xid_b = tx_manager.begin();
 
-        delete_at(&table, page_row1, slot_row1, xid_a)?; // A holds row1
-        delete_at(&table, page_row2, slot_row2, xid_b)?; // B holds row2
+        delete_at(&table, page_row1, slot_row1, xid_a)?;
+        delete_at(&table, page_row2, slot_row2, xid_b)?;
 
         let table_a = Arc::clone(&table);
-        let handle_a = thread::spawn(move || delete_at(&table_a, page_row2, slot_row2, xid_a)); // A wants row2 (B has it)
+        let handle_a = thread::spawn(move || delete_at(&table_a, page_row2, slot_row2, xid_a));
 
         thread::sleep(Duration::from_millis(50));
 
         let table_b = Arc::clone(&table);
-        let handle_b = thread::spawn(move || delete_at(&table_b, page_row1, slot_row1, xid_b)); // B wants row1 (A has it) — cycle!
+        let handle_b = thread::spawn(move || delete_at(&table_b, page_row1, slot_row1, xid_b));
 
         let result_a = handle_a.join().unwrap();
         let result_b = handle_b.join().unwrap();

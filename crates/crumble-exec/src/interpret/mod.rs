@@ -120,7 +120,7 @@ mod tests {
 
     fn seeded_catalog() -> (tempfile::TempDir, Catalog, u64) {
         let dir = tempfile::tempdir().unwrap();
-        let tx_manager = Arc::new(TransactionManager::new());
+        let tx_manager = Arc::new(TransactionManager::open(dir.path().join("tx.log")).unwrap());
         let catalog = Catalog::open(dir.path(), Arc::clone(&tx_manager)).unwrap();
         let xid = tx_manager.begin();
 
@@ -170,7 +170,7 @@ mod tests {
 
     fn seeded_pets_catalog() -> (tempfile::TempDir, Catalog, u64) {
         let dir = tempfile::tempdir().unwrap();
-        let tx_manager = Arc::new(TransactionManager::new());
+        let tx_manager = Arc::new(TransactionManager::open(dir.path().join("tx.log")).unwrap());
         let catalog = Catalog::open(dir.path(), Arc::clone(&tx_manager)).unwrap();
         let xid = tx_manager.begin();
 
@@ -280,7 +280,7 @@ mod tests {
 
     fn seeded_catalog_with_orders() -> (tempfile::TempDir, Catalog, u64) {
         let dir = tempfile::tempdir().unwrap();
-        let tx_manager = Arc::new(TransactionManager::new());
+        let tx_manager = Arc::new(TransactionManager::open(dir.path().join("tx.log")).unwrap());
         let catalog = Catalog::open(dir.path(), Arc::clone(&tx_manager)).unwrap();
         let xid = tx_manager.begin();
 
