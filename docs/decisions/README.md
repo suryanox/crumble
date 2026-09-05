@@ -434,3 +434,27 @@ another thing Project can sit on.
 real SQL rejects `SELECT name, SUM(age) FROM users GROUP BY city` (name is
 ambiguous per group). we don't enforce this — trust valid SQL. named gap,
 not silently wrong, just unchecked.
+
+## HAVING supports aggregates not in the SELECT list too
+went with the fuller scope after pushback — HAVING SUM(age) > 100 works even
+without SUM(age) in the SELECT list. implemented as a small expr-tree walk
+(collect_having_aggregates) that finds function calls not already computed,
+injects them into Aggregate's list (so they get computed) without adding
+them to output_columns (so they don't leak into results). HAVING itself
+lowers to a plain Filter sitting on top of Aggregate — zero exec-layer
+changes needed, since Filter's eval_expr already works generically against
+any input's named columns, and Aggregate's RowSet already exposes group_by
+columns + every aggregate's alias by name. same Filter-then-Project
+composability the whole IR has leaned on all along.
+
+## real bug found: test helper discarded its own seeding transaction id
+half the aggregate/HAVING tests did `let (_dir, catalog, ..) = seeded_pets_catalog()`
+then `catalog.tx_manager.begin()` — a FRESH xid, different from the one
+that actually inserted the seed rows (which was never committed). is_visible
+correctly hid all the seed data from that fresh reader. some tests still
+"passed" by accident (SUM over invisible data returns NULL, which coincided
+with the expected "empty group" answer; a loop with no row-count assertion
+silently skips when there are zero rows). real lesson: a test with only
+conditional per-row assertions inside a for-loop, no total count check, will
+silently pass over zero rows — worth always asserting row count explicitly,
+not just per-row content.
