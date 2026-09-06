@@ -39,6 +39,7 @@
 - [x] HAVING clause (including aggregates referenced only in HAVING, not in SELECT)
 - [ ] SELECT-list/GROUP BY validation (ungrouped non-aggregated columns aren't rejected)
 - [x] DROP TABLE / DROP INDEX (with IF EXISTS, DROP TABLE cascades to dependent indexes)
+- [x] persisted transaction log (commit/abort status survives process restart — was a real, confirmed data-loss bug before this)
 
 ## Indexing
 

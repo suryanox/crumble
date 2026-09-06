@@ -204,6 +204,26 @@ impl TransactionManager {
             }
         }
     }
+
+    pub fn forget(&self, xid: TransactionId) {
+        let mut inner = self.inner.lock().unwrap();
+        inner.statuses.remove(&xid);
+    }
+
+    pub fn finished_xids(&self) -> Vec<TransactionId> {
+        let inner = self.inner.lock().unwrap();
+        inner
+            .statuses
+            .iter()
+            .filter(|(_, status)| **status != TxStatus::InProgress)
+            .map(|(xid, _)| *xid)
+            .collect()
+    }
+
+    pub fn has_in_progress(&self) -> bool {
+        let inner = self.inner.lock().unwrap();
+        inner.statuses.values().any(|s| *s == TxStatus::InProgress)
+    }
 }
 
 #[cfg(test)]

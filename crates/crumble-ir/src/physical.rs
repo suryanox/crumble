@@ -88,4 +88,5 @@ pub enum PhysicalPlan {
     VacuumTable {
         table: String,
     },
+    VacuumAll,
 }

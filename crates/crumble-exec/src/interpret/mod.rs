@@ -1,5 +1,5 @@
 use crate::interpret::aggregate::aggregate;
-use crate::interpret::create::{create, create_index, vacuum_table};
+use crate::interpret::create::{create, create_index, vacuum_all, vacuum_table};
 use crate::interpret::delete::delete;
 use crate::interpret::drop_stmt::{drop_index, drop_table};
 use crate::interpret::filter::filter;
@@ -15,20 +15,19 @@ use crumble_ir::PhysicalPlan;
 use crumble_storage::Catalog;
 use crumble_tx::TransactionId;
 
-mod eval;
-mod filter;
-mod order;
-mod project;
-mod seqscan;
-
 mod aggregate;
 mod create;
 mod delete;
 mod drop_stmt;
+mod eval;
+mod filter;
 mod indexnestedloopjoin;
 mod indexscan;
 mod insert;
 mod nestedloopjoin;
+mod order;
+mod project;
+mod seqscan;
 mod update;
 
 pub fn execute(
@@ -106,6 +105,7 @@ pub fn execute(
             aggregates,
         } => aggregate(catalog, input, group_by, aggregates, xid),
         PhysicalPlan::VacuumTable { table } => vacuum_table(catalog, table),
+        PhysicalPlan::VacuumAll => vacuum_all(catalog),
     }
 }
 

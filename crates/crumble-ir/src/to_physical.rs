@@ -77,5 +77,6 @@ pub fn to_physical(plan: LogicalPlan) -> PhysicalPlan {
             aggregates,
         },
         LogicalPlan::VacuumTable { table } => PhysicalPlan::VacuumTable { table },
+        LogicalPlan::VacuumAll => PhysicalPlan::VacuumAll,
     }
 }

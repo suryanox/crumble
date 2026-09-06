@@ -458,3 +458,38 @@ silently skips when there are zero rows). real lesson: a test with only
 conditional per-row assertions inside a for-loop, no total count check, will
 silently pass over zero rows — worth always asserting row count explicitly,
 not just per-row content.
+
+## found a real, serious bug just by walking through the architecture out loud
+TransactionManager's commit/abort status only ever lived in memory. every
+restart created a brand new empty manager. is_visible checks a transaction's
+LIVE status — unknown xid means "not committed" means invisible. so every
+row with a real (non-zero) xmin became permanently invisible after ANY
+restart, forever. confirmed with a real test: insert+commit in one process,
+quit, start fresh, the row is gone. this is exactly what postgres's CLOG
+(pg_xact) exists to prevent — a durable record of every transaction's fate,
+specifically so it survives a crash/restart.
+
+fixed with a small, independent append-only log in crumble-tx itself (same
+pattern as the page WAL — length-prefixed records, fsync before returning —
+but NOT sharing crumble-wal's actual code, since WalRecord's shape is
+table/index-specific and bolting transaction-log entries onto it would force
+Table/BTree's replay to handle irrelevant variants).
+
+logs begin() too, not just commit/abort — needed for two things: (1) knowing
+the highest xid ever used, so the counter can resume past it instead of
+resetting to 1 and risking a NEW transaction colliding with an OLD row's
+xmin from a previous run, and (2) the actual crash-recovery rule: any
+transaction found still "InProgress" after replaying the whole log never
+got a chance to finish — whatever process owned it is gone, so it's treated
+as aborted. matches postgres's real convention exactly.
+
+scoped begin/commit/abort's log-write failures to panic rather than
+propagating Result — threading Result through every call site across the
+whole codebase for this would have been a huge ripple on top of an already
+large fix. named explicitly, not hidden.
+
+old data created before this fix has no log entries for its transactions at
+all — after the fix, that data's xids get treated as "no record = aborted",
+same as the crash-recovery rule. not a regression: that data was ALREADY
+invisible (that's the bug), just confirms it stays that way rather than
+silently reappearing wrong.

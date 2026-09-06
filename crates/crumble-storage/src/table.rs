@@ -4,10 +4,12 @@ use crate::row::Row;
 use crumble_buffer::BufferPool;
 use crumble_tx::{TransactionId, TransactionManager, TxStatus, is_visible};
 use crumble_wal::{WalRecord, WalWriter, read_all};
+use std::collections::HashSet;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 const BUFFER_CAPACITY: usize = 64;
+const FROZEN_DEAD: u64 = u64::MAX;
 #[derive(Debug)]
 pub struct Table {
     name: String,
@@ -167,8 +169,7 @@ impl Table {
             for slot in 0..page.slot_count() {
                 if let Some(bytes) = page.get_row(slot) {
                     let row = Row::from_bytes(bytes)?;
-                    let xmax = if row.xmax == 0 { None } else { Some(row.xmax) };
-                    if is_visible(row.xmin, xmax, reader, &self.tx_manager) {
+                    if row_is_visible(&row, reader, &self.tx_manager) {
                         rows.push(row);
                     }
                 }
@@ -190,8 +191,7 @@ impl Table {
             for slot in 0..page.slot_count() {
                 if let Some(bytes) = page.get_row(slot) {
                     let row = Row::from_bytes(bytes)?;
-                    let xmax = if row.xmax == 0 { None } else { Some(row.xmax) };
-                    if is_visible(row.xmin, xmax, reader, &self.tx_manager) {
+                    if row_is_visible(&row, reader, &self.tx_manager) {
                         rows.push(((page_index, slot), row));
                     }
                 }
@@ -226,8 +226,7 @@ impl Table {
         match page.get_row(slot) {
             Some(bytes) => {
                 let row = Row::from_bytes(bytes)?;
-                let xmax = if row.xmax == 0 { None } else { Some(row.xmax) };
-                if is_visible(row.xmin, xmax, reader, &self.tx_manager) {
+                if row_is_visible(&row, reader, &self.tx_manager) {
                     Ok(Some(row))
                 } else {
                     Ok(None)
@@ -235,6 +234,58 @@ impl Table {
             }
             None => Ok(None),
         }
+    }
+
+    pub fn all_rows_raw(&mut self) -> Result<Vec<((u32, u16), Row)>, StorageError> {
+        let mut rows = Vec::new();
+        let page_count = self.pool.page_count();
+
+        for page_index in 0..page_count {
+            let page = self.pool.fetch_page(page_index)?;
+            for slot in 0..page.slot_count() {
+                if let Some(bytes) = page.get_row(slot) {
+                    rows.push(((page_index, slot), Row::from_bytes(bytes)?));
+                }
+            }
+        }
+        Ok(rows)
+    }
+
+    pub fn freeze(&mut self) -> Result<HashSet<TransactionId>, StorageError> {
+        let raw_rows = self.all_rows_raw()?;
+        let mut frozen_xids = HashSet::new();
+
+        for ((page_index, slot), mut row) in raw_rows {
+            let mut changed = false;
+
+            if row.xmin != 0 && self.tx_manager.status(row.xmin) == Some(TxStatus::Committed) {
+                frozen_xids.insert(row.xmin);
+                row.xmin = 0;
+                changed = true;
+            }
+
+            if row.xmax != 0
+                && row.xmax != FROZEN_DEAD
+                && self.tx_manager.status(row.xmax) == Some(TxStatus::Committed)
+            {
+                frozen_xids.insert(row.xmax);
+                row.xmax = FROZEN_DEAD;
+                changed = true;
+            }
+
+            if changed {
+                let bytes = row.to_bytes()?;
+                let mut page = self.pool.fetch_page(page_index)?;
+                let overwrote = page.update_row(slot, &bytes);
+                debug_assert!(
+                    overwrote,
+                    "freezing only touches fixed-size xmin/xmax fields — length cannot change"
+                );
+                self.pool.write_page(page_index, &page)?;
+            }
+        }
+
+        Ok(frozen_xids)
     }
 }
 
@@ -298,6 +349,14 @@ pub fn delete_at(
             }
         }
     }
+}
+
+fn row_is_visible(row: &Row, reader: TransactionId, tx_manager: &TransactionManager) -> bool {
+    if row.xmax == FROZEN_DEAD {
+        return false; // permanently dead — no transaction lookup needed at all
+    }
+    let xmax = if row.xmax == 0 { None } else { Some(row.xmax) };
+    is_visible(row.xmin, xmax, reader, tx_manager)
 }
 
 #[cfg(test)]

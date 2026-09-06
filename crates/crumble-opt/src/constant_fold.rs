@@ -85,6 +85,7 @@ fn fold_plan(plan: LogicalPlan) -> LogicalPlan {
             aggregates,
         },
         LogicalPlan::VacuumTable { table } => LogicalPlan::VacuumTable { table },
+        LogicalPlan::VacuumAll => LogicalPlan::VacuumAll,
     }
 }
 

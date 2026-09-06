@@ -40,3 +40,8 @@ pub(super) fn vacuum_table(catalog: &Catalog, table: &str) -> Result<RowSet, Exe
     catalog.vacuum_table(table)?;
     Ok(RowSet::new(Vec::new(), Vec::new()))
 }
+
+pub(super) fn vacuum_all(catalog: &Catalog) -> Result<RowSet, ExecError> {
+    catalog.vacuum_all()?;
+    Ok(RowSet::new(Vec::new(), Vec::new()))
+}

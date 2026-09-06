@@ -254,7 +254,11 @@ impl Catalog {
     }
 
     pub fn vacuum_table(&self, table: &str) -> Result<(), StorageError> {
-        self.table(table)?; // just to surface TableNotFound early if it doesn't exist
+        {
+            let target_handle = self.table(table)?;
+            let mut target = target_handle.lock().unwrap();
+            target.freeze()?;
+        }
 
         let dependent_indexes: Vec<(String, String)> = {
             let index_meta = self.index_meta.read().unwrap();
@@ -268,6 +272,25 @@ impl Catalog {
         for (idx_name, column) in dependent_indexes {
             self.drop_index(&idx_name, true)?;
             self.create_index(&idx_name, table, &column)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn vacuum_all(&self) -> Result<(), StorageError> {
+        let table_names: Vec<String> = self.tables.read().unwrap().keys().cloned().collect();
+
+        for name in &table_names {
+            self.vacuum_table(name)?;
+        }
+
+        // Only safe to forget if nothing is concurrently committing/aborting —
+        // avoids a race where a just-finished transaction's rows haven't been
+        // frozen yet, but its status gets forgotten anyway.
+        if !self.tx_manager.has_in_progress() {
+            for xid in self.tx_manager.finished_xids() {
+                self.tx_manager.forget(xid);
+            }
         }
 
         Ok(())

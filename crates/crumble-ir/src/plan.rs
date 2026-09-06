@@ -65,6 +65,7 @@ pub enum LogicalPlan {
     VacuumTable {
         table: String,
     },
+    VacuumAll,
 }
 
 #[derive(Debug, Clone, PartialEq)]
