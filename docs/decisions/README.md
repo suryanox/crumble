@@ -493,3 +493,40 @@ all — after the fix, that data's xids get treated as "no record = aborted",
 same as the crash-recovery rule. not a regression: that data was ALREADY
 invisible (that's the bug), just confirms it stays that way rather than
 silently reappearing wrong.
+
+## freezing only needed for committed transactions, never aborted ones
+real insight from tracing is_visible carefully: for xmin, only Some(Committed)
+gives true — Some(Aborted) and None (unknown/forgotten) both give false,
+identically. so forgetting an aborted transaction's status is ALREADY safe,
+zero work needed — the default outcome (false) matches. only forgetting a
+COMMITTED xmin is dangerous (None would wrongly become "not visible" instead
+of "always visible"). same logic on the xmax side but inverted: forgetting an
+aborted xmax is safe (None defaults to visible, same as Aborted), forgetting
+a committed xmax is the dangerous one (None would wrongly resurrect a really-
+deleted row). so real freeze work is exactly two cases, not four.
+
+no vacuum-horizon/timing window needed either, unlike postgres — that only
+exists because REPEATABLE READ/SERIALIZABLE need to preserve old row
+versions for still-running snapshots. we don't support those isolation
+levels, so a transaction can be frozen the instant it's known committed,
+safe for every reader immediately.
+
+xmax freezing needs a THIRD sentinel value beyond 0 (no delete) and a real
+xid — u64::MAX, FROZEN_DEAD, meaning "permanently dead, skip the transaction
+lookup entirely." without it, forgetting a committed xmax's status would
+have no way to keep the row correctly dead afterward.
+
+FROZEN_DEAD handling lives entirely in crumble-storage (a row_is_visible
+wrapper checked before ever calling crumble-tx's is_visible), not in
+crumble-tx itself — it's a storage-layer shortcut, not a real transaction
+concept, so crumble-tx correctly stays ignorant of it, same as it's always
+been ignorant of Row.
+
+actually forgetting a transaction's status (not just freezing rows) only
+happens when the WHOLE system is quiescent (zero in-progress transactions) —
+conservative on purpose, avoids a real race where a just-committed
+transaction's rows haven't been frozen yet but its status gets forgotten
+anyway. real cost: VACUUM with no table name won't shrink the transaction
+log at all if anything is mid-transaction when it runs. acceptable —
+matches how VACUUM is commonly run during low-activity windows anyway in
+real systems too.
