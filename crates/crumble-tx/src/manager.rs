@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 pub type TransactionId = u64;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TxStatus {
     InProgress,
     Committed,
@@ -18,11 +18,15 @@ pub enum TxStatus {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DeadlockDetected;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 enum TxLogRecord {
     Begin(TransactionId),
     Commit(TransactionId),
     Abort(TransactionId),
+    Snapshot {
+        next_id: TransactionId,
+        statuses: Vec<(TransactionId, TxStatus)>,
+    },
 }
 
 fn append_record(file: &mut File, record: &TxLogRecord) -> std::io::Result<()> {
@@ -67,12 +71,14 @@ fn read_all_records(path: &Path) -> std::io::Result<Vec<TxLogRecord>> {
     }
     Ok(records)
 }
+
 #[derive(Debug)]
 struct Inner {
     next_id: TransactionId,
     statuses: HashMap<TransactionId, TxStatus>,
     waits_for: HashMap<TransactionId, TransactionId>,
     log_file: File,
+    log_path: std::path::PathBuf,
 }
 
 #[derive(Debug)]
@@ -90,26 +96,29 @@ impl TransactionManager {
         let mut max_id: TransactionId = 0;
 
         for record in &records {
-            let xid = match record {
+            match record {
+                TxLogRecord::Snapshot {
+                    next_id,
+                    statuses: snap,
+                } => {
+                    statuses = snap.iter().cloned().collect();
+                    max_id = max_id.max(next_id.saturating_sub(1));
+                }
                 TxLogRecord::Begin(xid) => {
                     statuses.entry(*xid).or_insert(TxStatus::InProgress);
-                    *xid
+                    max_id = max_id.max(*xid);
                 }
                 TxLogRecord::Commit(xid) => {
                     statuses.insert(*xid, TxStatus::Committed);
-                    *xid
+                    max_id = max_id.max(*xid);
                 }
                 TxLogRecord::Abort(xid) => {
                     statuses.insert(*xid, TxStatus::Aborted);
-                    *xid
+                    max_id = max_id.max(*xid);
                 }
-            };
-            max_id = max_id.max(xid);
+            }
         }
 
-        // crash-recovery rule: anything still InProgress after replaying the
-        // whole log never got a chance to finish — whatever process owned
-        // it is gone, so its work is treated as rolled back.
         for status in statuses.values_mut() {
             if *status == TxStatus::InProgress {
                 *status = TxStatus::Aborted;
@@ -124,6 +133,7 @@ impl TransactionManager {
                 statuses,
                 waits_for: HashMap::new(),
                 log_file,
+                log_path: path.to_path_buf(),
             }),
             completion: Condvar::new(),
         })
@@ -223,6 +233,34 @@ impl TransactionManager {
     pub fn has_in_progress(&self) -> bool {
         let inner = self.inner.lock().unwrap();
         inner.statuses.values().any(|s| *s == TxStatus::InProgress)
+    }
+    pub fn compact(&self) -> std::io::Result<()> {
+        let mut inner = self.inner.lock().unwrap();
+
+        let snapshot = TxLogRecord::Snapshot {
+            next_id: inner.next_id,
+            statuses: inner.statuses.iter().map(|(k, v)| (*k, *v)).collect(),
+        };
+
+        let tmp_path = inner.log_path.with_extension("log.tmp");
+        let mut tmp_file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&tmp_path)?;
+        append_record(&mut tmp_file, &snapshot)?;
+        drop(tmp_file);
+
+        std::fs::rename(&tmp_path, &inner.log_path)?;
+
+        // the old log_file handle now points at the unlinked, pre-compaction
+        // file — reopen a fresh append handle to what's now at this path.
+        inner.log_file = OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(&inner.log_path)?;
+
+        Ok(())
     }
 }
 

@@ -291,6 +291,7 @@ impl Catalog {
             for xid in self.tx_manager.finished_xids() {
                 self.tx_manager.forget(xid);
             }
+            self.tx_manager.compact().map_err(StorageError::Io)?;
         }
 
         Ok(())
