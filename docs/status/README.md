@@ -60,6 +60,7 @@
 - [ ] isolation levels (currently always READ COMMITTED-equivalent behavior, no REPEATABLE READ/SERIALIZABLE)
 - [x] concurrent access (proven via real multi-threaded tests, not just claimed)
 - [x] transaction status freezing + safe forgetting (VACUUM freezes committed xmin/xmax in place; VACUUM with no table forgets fully-frozen transaction status when the system is quiescent)
+- [x] transaction log compaction (Snapshot record replaces prior history, atomic temp-file+rename swap, keeps restart replay time bounded)
 
 ## Not Started
 

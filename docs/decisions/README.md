@@ -530,3 +530,18 @@ anyway. real cost: VACUUM with no table name won't shrink the transaction
 log at all if anything is mid-transaction when it runs. acceptable —
 matches how VACUUM is commonly run during low-activity windows anyway in
 real systems too.
+
+## log compaction — snapshot + atomic rename, not in-place rewrite
+writing a snapshot record directly into the live log file risks a crash
+mid-write leaving a half-old-half-new corrupted file. instead: write the
+snapshot to a separate temp file, fsync it (same append_record path
+already used everywhere else), then rename it over the original. POSIX
+rename is atomic — the file at that path is always either the fully-old
+or fully-new version, never torn, same durability discipline as
+everything else in this project, just applied to the log file itself
+this time instead of a page.
+
+replay treats a Snapshot record as a full REPLACEMENT of everything
+before it, not a merge — a snapshot already captures the complete state
+as of when it was written, so anything logged before it is redundant by
+definition once the snapshot exists.
