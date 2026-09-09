@@ -43,8 +43,8 @@
   <component name="ChangeListManager">
     <list default="true" id="cf7745a6-b7f4-4a18-97a1-bb78fb58a366" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/decisions/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/decisions/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/docs/status/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/status/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/crumble-storage/src/table.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-storage/src/table.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/crumble-wal/src/record.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-wal/src/record.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -68,23 +68,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="2.0584487741910054" />
-      <entry key="MS500" value="4.706623605773844" />
-      <entry key="S2" value="10.822062384681077" />
-      <entry key="S5" value="15.259003624543238" />
-      <entry key="S10" value="18.851308553164007" />
-      <entry key="S30" value="29.966345578520997" />
-      <entry key="S60" value="38.446227101905585" />
-      <entry key="M2" value="47.822417350092856" />
-      <entry key="M5" value="60.20808735979884" />
-      <entry key="M10" value="66.98751436918818" />
-      <entry key="M15" value="69.70580147901424" />
-      <entry key="M30" value="72.69911447761224" />
-      <entry key="H1" value="74.30894271871708" />
-      <entry key="H2" value="75.18103238965617" />
-      <entry key="H4" value="77.44319511870835" />
-      <entry key="D1" value="523.5624934527261" />
-      <entry key="W1" value="7087.723192865256" />
+      <entry key="MS100" value="1.9116878371639403" />
+      <entry key="MS500" value="4.715497911334705" />
+      <entry key="S2" value="11.716433180032453" />
+      <entry key="S5" value="19.54800673143013" />
+      <entry key="S10" value="24.58663843846809" />
+      <entry key="S30" value="29.19444609442937" />
+      <entry key="S60" value="30.549956712903885" />
+      <entry key="M2" value="31.262704474755246" />
+      <entry key="M5" value="31.702075323279857" />
+      <entry key="M10" value="31.85053142786124" />
+      <entry key="M15" value="31.90024140348443" />
+      <entry key="M30" value="31.95006416419078" />
+      <entry key="H1" value="31.975019002371656" />
+      <entry key="H2" value="31.996538830015396" />
+      <entry key="H4" value="32.84264858767257" />
+      <entry key="D1" value="278.7621980049852" />
+      <entry key="W1" value="6397.56583961529" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -94,35 +94,35 @@
       <entry key="S10" value="0.0" />
       <entry key="S30" value="0.0" />
       <entry key="S60" value="0.0" />
-      <entry key="M2" value="5.581888328738072E-203" />
-      <entry key="M5" value="1.2551986326986959E-81" />
-      <entry key="M10" value="3.542878254609789E-41" />
-      <entry key="M15" value="1.0787086281706567E-27" />
-      <entry key="M30" value="3.284369997687105E-14" />
-      <entry key="H1" value="1.8122836406245702E-7" />
-      <entry key="H2" value="4.261447796967105E-4" />
-      <entry key="H4" value="0.022308228948423832" />
-      <entry key="D1" value="36.5253323682398" />
-      <entry key="W1" value="760.2739990797817" />
+      <entry key="M2" value="0.0" />
+      <entry key="M5" value="1.029318840338607E-175" />
+      <entry key="M10" value="3.208299924163265E-88" />
+      <entry key="M15" value="4.686514596577324E-59" />
+      <entry key="M30" value="6.84581229407993E-30" />
+      <entry key="H1" value="2.616451118456768E-15" />
+      <entry key="H2" value="5.1203588696839395E-8" />
+      <entry key="H4" value="2.4453256695009304E-4" />
+      <entry key="D1" value="17.21496373661877" />
+      <entry key="W1" value="682.8108517669306" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="2.011467083542768" />
-      <entry key="MS500" value="4.6766324075428445" />
-      <entry key="S2" value="10.804760959691878" />
-      <entry key="S5" value="15.249125222246846" />
-      <entry key="S10" value="18.845146599972992" />
-      <entry key="S30" value="29.963029503565032" />
-      <entry key="S60" value="38.444096331018095" />
-      <entry key="M2" value="47.82110042897056" />
-      <entry key="M5" value="60.2074309015325" />
-      <entry key="M10" value="66.9871509307732" />
-      <entry key="M15" value="69.7055497935987" />
-      <entry key="M30" value="72.69898346756489" />
-      <entry key="H1" value="74.30887600606755" />
-      <entry key="H2" value="75.18142455279991" />
-      <entry key="H4" value="77.46548193141132" />
-      <entry key="D1" value="560.086957882986" />
-      <entry key="W1" value="7847.994563484075" />
+      <entry key="MS100" value="1.869660371134592" />
+      <entry key="MS500" value="4.687487420161647" />
+      <entry key="S2" value="11.697563216020074" />
+      <entry key="S5" value="19.53458041980604" />
+      <entry key="S10" value="24.578011870530002" />
+      <entry key="S30" value="29.19098782030085" />
+      <entry key="S60" value="30.548142005829096" />
+      <entry key="M2" value="31.261774640319928" />
+      <entry key="M5" value="31.701697848503407" />
+      <entry key="M10" value="31.850341754569097" />
+      <entry key="M15" value="31.900114745715722" />
+      <entry key="M30" value="31.950000730619674" />
+      <entry key="H1" value="31.97498725936965" />
+      <entry key="H2" value="31.996522999076024" />
+      <entry key="H4" value="32.842884944814" />
+      <entry key="D1" value="295.9767513451072" />
+      <entry key="W1" value="7080.374330541995" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{

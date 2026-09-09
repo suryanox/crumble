@@ -22,4 +22,10 @@ pub enum WalRecord {
         page_index: u32,
         page_bytes: Vec<u8>,
     },
+    UpdateRow {
+        table: String,
+        page_index: u32,
+        slot: u16,
+        row_bytes: Vec<u8>,
+    },
 }

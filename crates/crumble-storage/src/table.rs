@@ -71,6 +71,18 @@ impl Table {
                 WalRecord::WritePage { .. } => {
                     unreachable!("Table's WAL never writes WritePage records — that's BTree-only")
                 }
+                WalRecord::UpdateRow {
+                    page_index,
+                    slot,
+                    row_bytes,
+                    ..
+                } => {
+                    let already_durable = page_index < table.pool.page_count()
+                        && table.pool.fetch_page(page_index)?.page_lsn() >= lsn;
+                    if !already_durable {
+                        table.apply_update_at(page_index, slot, &*row_bytes, lsn)?;
+                    }
+                }
             }
         }
 
@@ -275,17 +287,41 @@ impl Table {
 
             if changed {
                 let bytes = row.to_bytes()?;
+                let lsn = self.wal.append(&WalRecord::UpdateRow {
+                    table: self.name.clone(),
+                    page_index,
+                    slot,
+                    row_bytes: bytes.clone(),
+                })?;
                 let mut page = self.pool.fetch_page(page_index)?;
                 let overwrote = page.update_row(slot, &bytes);
                 debug_assert!(
                     overwrote,
-                    "freezing only touches fixed-size xmin/xmax fields — length cannot change"
+                    "freezing only touches fixed-size xmin/xmax fields"
                 );
+                page.set_page_lsn(lsn);
                 self.pool.write_page(page_index, &page)?;
             }
         }
 
         Ok(frozen_xids)
+    }
+
+    fn apply_update_at(
+        &mut self,
+        page_index: u32,
+        slot: u16,
+        bytes: &[u8],
+        lsn: u64,
+    ) -> Result<(), StorageError> {
+        let mut page = self.pool.fetch_page(page_index)?;
+        let overwrote = page.update_row(slot, bytes);
+        debug_assert!(
+            overwrote,
+            "WAL-replayed update must always fit the original slot's length"
+        );
+        page.set_page_lsn(lsn);
+        Ok(self.pool.write_page(page_index, &page)?)
     }
 }
 
@@ -329,11 +365,14 @@ pub fn delete_at(
                 );
 
                 let table_name = t.name.clone();
-                let lsn = t.wal.append(&WalRecord::Insert {
+                let lsn = t.wal.append(&WalRecord::UpdateRow {
                     table: table_name,
                     page_index,
-                    row_bytes: updated_bytes,
+                    slot,
+                    row_bytes: updated_bytes.clone(),
                 })?;
+                let mut page = page;
+                page.update_row(slot, &updated_bytes);
                 page.set_page_lsn(lsn);
                 t.pool.write_page(page_index, &page)?;
                 return Ok(());
@@ -645,6 +684,62 @@ mod tests {
         assert_eq!(
             deadlocks, 1,
             "exactly one side of the cycle must be caught as a deadlock, not both hanging"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn recovers_delete_correctly_not_duplicated_after_simulated_crash() -> Result<(), StorageError>
+    {
+        let dir = tempfile::tempdir().unwrap();
+        let tx_manager = Arc::new(
+            TransactionManager::open(dir.path().join("tx.log")).expect("transaction log must open"),
+        );
+
+        let setup = tx_manager.begin();
+        let (page_index, slot) = {
+            let table = Arc::new(Mutex::new(Table::open(
+                "users",
+                vec![col("name", ColumnType::String)],
+                dir.path(),
+                Arc::clone(&tx_manager),
+            )?));
+            let loc = {
+                let mut t = table.lock().unwrap();
+                t.insert(Row::new(vec![Value::String("alice".to_string())]), setup)?
+            };
+            tx_manager.commit(setup);
+
+            let del_xid = tx_manager.begin();
+            delete_at(&table, loc.0, loc.1, del_xid)?;
+            tx_manager.commit(del_xid);
+            loc
+            // table dropped here, no explicit flush — simulates a crash right
+            // after delete_at's write returned.
+        };
+
+        let mut recovered = Table::open(
+            "users",
+            vec![col("name", ColumnType::String)],
+            dir.path(),
+            Arc::clone(&tx_manager),
+        )?;
+        let all_rows = recovered.all_rows_raw()?;
+
+        assert_eq!(
+            all_rows.len(),
+            1,
+            "the row must be updated in place, never duplicated into a second slot"
+        );
+        assert_eq!(
+            all_rows[0].0,
+            (page_index, slot),
+            "must stay at its original location"
+        );
+        assert_ne!(
+            all_rows[0].1.xmax, 0,
+            "xmax must correctly show the delete after recovery"
         );
 
         Ok(())
