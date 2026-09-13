@@ -545,3 +545,21 @@ replay treats a Snapshot record as a full REPLACEMENT of everything
 before it, not a merge — a snapshot already captures the complete state
 as of when it was written, so anything logged before it is redundant by
 definition once the snapshot exists.
+
+## ORDER BY can only reference SELECT-list columns, not arbitrary table columns
+postgres allows ORDER BY on columns not in the SELECT list as an extension.
+we don't — Sort sits above Project in the plan (matches SQL's real logical
+evaluation order: FROM -> WHERE -> GROUP BY -> HAVING -> SELECT -> ORDER BY
+-> LIMIT), so by the time Sort runs, anything not in the projected output is
+just gone. architecture-driven restriction, not a bug — SELECT name FROM t
+ORDER BY age correctly fails with ColumnNotFound unless age is also selected.
+
+## NULLs sort last regardless of ASC/DESC, and getting this right needed a
+## real fix, not just an assumption
+first version reversed the WHOLE comparison result (including null
+placement) for DESC — this flipped NULLs to the FRONT under descending sort,
+caught immediately by a test built specifically to check it. fix: decide
+null placement as a fixed outcome (NULL always greater than non-null) before
+any direction reversal even happens, only reverse the real value comparison.
+good reminder that "add .reverse() somewhere in the sort" is the kind of
+change that's very easy to apply one level too broadly.
