@@ -5,6 +5,7 @@ mod delete;
 mod drop_stmt;
 mod expr;
 mod insert;
+mod order_limit;
 mod select;
 mod update;
 mod vacuum_stmt;
@@ -14,6 +15,7 @@ use crate::lower::create_index::lower_create_index;
 use crate::lower::delete::lower_delete;
 use crate::lower::drop_stmt::lower_drop;
 use crate::lower::insert::lower_insert;
+use crate::lower::order_limit::{apply_limit, apply_order_by};
 use crate::lower::select::lower_select_expr;
 use crate::lower::update::lower_update;
 use crate::lower::vacuum_stmt::lower_vacuum;
@@ -32,7 +34,11 @@ pub fn lower(ast: &Ast) -> Result<LogicalPlan, LowerError> {
 
 fn lower_statement(statement: &Statement) -> Result<LogicalPlan, LowerError> {
     match statement {
-        Statement::Query(query) => lower_select_expr(&query.body),
+        Statement::Query(query) => {
+            let base = lower_select_expr(&query.body)?;
+            let sorted = apply_order_by(base, &query.order_by)?;
+            apply_limit(sorted, &query.limit_clause)
+        }
         Statement::Insert(insert) => lower_insert(insert),
         Statement::CreateTable(create_table) => lower_create(create_table),
         Statement::Delete(delete) => lower_delete(delete),

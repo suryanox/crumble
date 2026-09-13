@@ -1,5 +1,5 @@
 use crate::expr::Expr;
-use crate::plan::{JoinKind, Projection};
+use crate::plan::{JoinKind, Projection, SortDirection};
 use crate::{AggregateExpr, ColumnDef, Literal};
 
 /**
@@ -89,4 +89,13 @@ pub enum PhysicalPlan {
         table: String,
     },
     VacuumAll,
+    Sort {
+        input: Box<PhysicalPlan>,
+        order_by: Vec<(String, SortDirection)>,
+    },
+    Limit {
+        input: Box<PhysicalPlan>,
+        limit: Option<u64>,
+        offset: Option<u64>,
+    },
 }

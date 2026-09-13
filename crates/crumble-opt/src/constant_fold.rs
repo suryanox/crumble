@@ -86,6 +86,19 @@ fn fold_plan(plan: LogicalPlan) -> LogicalPlan {
         },
         LogicalPlan::VacuumTable { table } => LogicalPlan::VacuumTable { table },
         LogicalPlan::VacuumAll => LogicalPlan::VacuumAll,
+        LogicalPlan::Sort { input, order_by } => LogicalPlan::Sort {
+            input: Box::new(fold_plan(*input)),
+            order_by,
+        },
+        LogicalPlan::Limit {
+            input,
+            limit,
+            offset,
+        } => LogicalPlan::Limit {
+            input: Box::new(fold_plan(*input)),
+            limit,
+            offset,
+        },
     }
 }
 

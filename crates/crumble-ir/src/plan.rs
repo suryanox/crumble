@@ -66,6 +66,15 @@ pub enum LogicalPlan {
         table: String,
     },
     VacuumAll,
+    Sort {
+        input: Box<LogicalPlan>,
+        order_by: Vec<(String, SortDirection)>,
+    },
+    Limit {
+        input: Box<LogicalPlan>,
+        limit: Option<u64>,
+        offset: Option<u64>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -98,4 +107,10 @@ pub struct AggregateExpr {
     pub column: Option<String>,
     /// output column name, e.g. "COUNT(*)" or an explicit AS alias.
     pub alias: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Copy)]
+pub enum SortDirection {
+    Asc,
+    Desc,
 }

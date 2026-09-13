@@ -6,9 +6,11 @@ use crate::interpret::filter::filter;
 use crate::interpret::indexnestedloopjoin::indexnestedloopjoin;
 use crate::interpret::indexscan::{indexscan, rangeindexscan};
 use crate::interpret::insert::insert;
+use crate::interpret::limit::limit;
 use crate::interpret::nestedloopjoin::nestedloopjoin;
 use crate::interpret::project::project;
 use crate::interpret::seqscan::seqscan;
+use crate::interpret::sort::sort;
 use crate::interpret::update::update;
 use crate::{ExecError, RowSet};
 use crumble_ir::PhysicalPlan;
@@ -24,10 +26,12 @@ mod filter;
 mod indexnestedloopjoin;
 mod indexscan;
 mod insert;
+mod limit;
 mod nestedloopjoin;
 mod order;
 mod project;
 mod seqscan;
+mod sort;
 mod update;
 
 pub fn execute(
@@ -106,6 +110,12 @@ pub fn execute(
         } => aggregate(catalog, input, group_by, aggregates, xid),
         PhysicalPlan::VacuumTable { table } => vacuum_table(catalog, table),
         PhysicalPlan::VacuumAll => vacuum_all(catalog),
+        PhysicalPlan::Sort { input, order_by } => sort(catalog, input, order_by, xid),
+        PhysicalPlan::Limit {
+            input,
+            limit: lim,
+            offset,
+        } => limit(catalog, input, lim, offset, xid),
     }
 }
 
@@ -679,6 +689,167 @@ mod tests {
             result.rows()[0].values()[0],
             Value::Int(5),
             "COUNT(age) must exclude ghost's NULL"
+        );
+        Ok(())
+    }
+
+    fn seeded_sort_catalog() -> (tempfile::TempDir, Catalog, u64) {
+        let dir = tempfile::tempdir().unwrap();
+        let tx_manager = Arc::new(TransactionManager::open(dir.path().join("tx.log")).unwrap());
+        let catalog = Catalog::open(dir.path(), Arc::clone(&tx_manager)).unwrap();
+        let xid = tx_manager.begin();
+
+        catalog
+            .create_table(
+                "scores",
+                vec![
+                    col("name", ColumnType::String),
+                    col("score", ColumnType::Int),
+                ],
+            )
+            .unwrap();
+        let handle = catalog.table("scores").unwrap();
+        let mut scores = handle.lock().unwrap();
+        for (name, score) in [
+            ("alice", Some(30)),
+            ("bob", Some(10)),
+            ("carol", Some(20)),
+            ("dave", None),
+        ] {
+            let score_value = match score {
+                Some(n) => Value::Int(n),
+                None => Value::Null,
+            };
+            scores
+                .insert(
+                    Row::new(vec![Value::String(name.to_string()), score_value]),
+                    xid,
+                )
+                .unwrap();
+        }
+        drop(scores);
+
+        (dir, catalog, xid)
+    }
+
+    #[test]
+    fn order_by_asc_sorts_ascending_with_nulls_last() -> Result<(), Box<dyn std::error::Error>> {
+        let (_dir, catalog, xid) = seeded_sort_catalog();
+
+        let result = run(
+            "SELECT name, score FROM scores ORDER BY score ASC",
+            &catalog,
+            xid,
+        )?;
+
+        let names: Vec<String> = result
+            .rows()
+            .iter()
+            .map(|r| r.values()[0].to_string())
+            .collect();
+        assert_eq!(
+            names,
+            vec!["bob", "carol", "alice", "dave"],
+            "ascending by score, NULL (dave) last"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn order_by_desc_sorts_descending_with_nulls_still_last()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let (_dir, catalog, xid) = seeded_sort_catalog();
+
+        let result = run(
+            "SELECT name, score FROM scores ORDER BY score DESC",
+            &catalog,
+            xid,
+        )?;
+
+        let names: Vec<String> = result
+            .rows()
+            .iter()
+            .map(|r| r.values()[0].to_string())
+            .collect();
+        assert_eq!(
+            names,
+            vec!["alice", "carol", "bob", "dave"],
+            "descending by score, NULL (dave) STILL last, not first"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn limit_returns_only_the_first_n_rows() -> Result<(), Box<dyn std::error::Error>> {
+        let (_dir, catalog, xid) = seeded_sort_catalog();
+
+        let result = run(
+            "SELECT name, score FROM scores ORDER BY score ASC LIMIT 2",
+            &catalog,
+            xid,
+        )?;
+
+        let names: Vec<String> = result
+            .rows()
+            .iter()
+            .map(|r| r.values()[0].to_string())
+            .collect();
+        assert_eq!(names, vec!["bob", "carol"]);
+        Ok(())
+    }
+
+    #[test]
+    fn offset_skips_the_first_n_rows() -> Result<(), Box<dyn std::error::Error>> {
+        let (_dir, catalog, xid) = seeded_sort_catalog();
+
+        let result = run(
+            "SELECT name, score FROM scores ORDER BY score ASC OFFSET 1",
+            &catalog,
+            xid,
+        )?;
+
+        let names: Vec<String> = result
+            .rows()
+            .iter()
+            .map(|r| r.values()[0].to_string())
+            .collect();
+        assert_eq!(names, vec!["carol", "alice", "dave"]);
+        Ok(())
+    }
+
+    #[test]
+    fn limit_and_offset_combine_correctly() -> Result<(), Box<dyn std::error::Error>> {
+        let (_dir, catalog, xid) = seeded_sort_catalog();
+
+        let result = run(
+            "SELECT name, score FROM scores ORDER BY score ASC LIMIT 1 OFFSET 1",
+            &catalog,
+            xid,
+        )?;
+
+        let names: Vec<String> = result
+            .rows()
+            .iter()
+            .map(|r| r.values()[0].to_string())
+            .collect();
+        assert_eq!(names, vec!["carol"], "one row, skipping the first");
+        Ok(())
+    }
+
+    #[test]
+    fn limit_larger_than_result_set_returns_everything() -> Result<(), Box<dyn std::error::Error>> {
+        let (_dir, catalog, xid) = seeded_sort_catalog();
+
+        let result = run(
+            "SELECT name, score FROM scores ORDER BY score ASC LIMIT 100",
+            &catalog,
+            xid,
+        )?;
+
+        assert_eq!(
+            result.rows().len(),
+            4,
+            "LIMIT beyond available rows must not error or truncate wrongly"
         );
         Ok(())
     }

@@ -78,5 +78,18 @@ pub fn to_physical(plan: LogicalPlan) -> PhysicalPlan {
         },
         LogicalPlan::VacuumTable { table } => PhysicalPlan::VacuumTable { table },
         LogicalPlan::VacuumAll => PhysicalPlan::VacuumAll,
+        LogicalPlan::Sort { input, order_by } => PhysicalPlan::Sort {
+            input: Box::new(to_physical(*input)),
+            order_by,
+        },
+        LogicalPlan::Limit {
+            input,
+            limit,
+            offset,
+        } => PhysicalPlan::Limit {
+            input: Box::new(to_physical(*input)),
+            limit,
+            offset,
+        },
     }
 }
