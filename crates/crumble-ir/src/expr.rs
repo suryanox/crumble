@@ -11,6 +11,11 @@ pub enum Expr {
         expr: Box<Expr>,
         negated: bool,
     },
+    Like {
+        expr: Box<Expr>,
+        pattern: Box<Expr>,
+        negated: bool,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq)]

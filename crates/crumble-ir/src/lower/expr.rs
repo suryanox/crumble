@@ -32,6 +32,94 @@ pub(in crate::lower) fn lower_expr(expr: &SqlExpr) -> Result<Expr, LowerError> {
                 .join(".");
             Ok(Expr::Column(name))
         }
+        SqlExpr::Like {
+            negated,
+            expr,
+            pattern,
+            ..
+        } => Ok(Expr::Like {
+            expr: Box::new(lower_expr(expr)?),
+            pattern: Box::new(lower_expr(pattern)?),
+            negated: *negated,
+        }),
+        SqlExpr::UnaryOp {
+            op: sqlparser::ast::UnaryOperator::Not,
+            expr,
+        } => Ok(Expr::BinaryOp {
+            left: Box::new(lower_expr(expr)?),
+            op: BinaryOperator::Eq,
+            right: Box::new(Expr::Literal(Literal::Bool(false))),
+        }),
+        SqlExpr::InList {
+            expr,
+            list,
+            negated,
+        } => {
+            let target = lower_expr(expr)?;
+            let mut items = list.iter().map(lower_expr);
+
+            let first = items
+                .next()
+                .ok_or_else(|| LowerError::Unsupported("IN () with empty list".to_string()))?;
+            let mut acc = Expr::BinaryOp {
+                left: Box::new(target.clone()),
+                op: BinaryOperator::Eq,
+                right: Box::new(first?),
+            };
+
+            for item in items {
+                acc = Expr::BinaryOp {
+                    left: Box::new(acc),
+                    op: BinaryOperator::Or,
+                    right: Box::new(Expr::BinaryOp {
+                        left: Box::new(target.clone()),
+                        op: BinaryOperator::Eq,
+                        right: Box::new(item?),
+                    }),
+                };
+            }
+
+            if *negated {
+                Ok(Expr::BinaryOp {
+                    left: Box::new(acc),
+                    op: BinaryOperator::Eq,
+                    right: Box::new(Expr::Literal(Literal::Bool(false))),
+                })
+            } else {
+                Ok(acc)
+            }
+        }
+        SqlExpr::Between {
+            expr,
+            negated,
+            low,
+            high,
+        } => {
+            let target = lower_expr(expr)?;
+            let range = Expr::BinaryOp {
+                left: Box::new(Expr::BinaryOp {
+                    left: Box::new(target.clone()),
+                    op: BinaryOperator::GtEq,
+                    right: Box::new(lower_expr(low)?),
+                }),
+                op: BinaryOperator::And,
+                right: Box::new(Expr::BinaryOp {
+                    left: Box::new(target),
+                    op: BinaryOperator::LtEq,
+                    right: Box::new(lower_expr(high)?),
+                }),
+            };
+
+            if *negated {
+                Ok(Expr::BinaryOp {
+                    left: Box::new(range),
+                    op: BinaryOperator::Eq,
+                    right: Box::new(Expr::Literal(Literal::Bool(false))),
+                })
+            } else {
+                Ok(range)
+            }
+        }
         other => Err(LowerError::Unsupported(format!("expression: {other:?}"))),
     }
 }
