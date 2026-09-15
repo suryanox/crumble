@@ -26,6 +26,23 @@ pub(in crate::interpret) fn eval_expr(
             let is_null = matches!(value, Value::Null);
             Ok(Value::Bool(is_null != *negated))
         }
+        Expr::Like {
+            expr,
+            pattern,
+            negated,
+        } => {
+            let value = eval_expr(expr, columns, row)?;
+            let pattern_value = eval_expr(pattern, columns, row)?;
+
+            match (&value, &pattern_value) {
+                (Value::Null, _) | (_, Value::Null) => Ok(Value::Null), // three-valued, same as any other comparison
+                (Value::String(s), Value::String(p)) => {
+                    let matches = like_match(s, p);
+                    Ok(Value::Bool(matches != *negated))
+                }
+                _ => Err(ExecError::TypeMismatch),
+            }
+        }
     }
 }
 
@@ -154,5 +171,62 @@ pub(in crate::interpret) fn eval_float(
         BinaryOperator::GtEq => Ok(Value::Bool(l >= r)),
         BinaryOperator::Add => Ok(Value::Float(l + r)),
         BinaryOperator::And | BinaryOperator::Or => Err(ExecError::TypeMismatch),
+    }
+}
+
+fn like_match(text: &str, pattern: &str) -> bool {
+    let text: Vec<char> = text.chars().collect();
+    let pattern: Vec<char> = pattern.chars().collect();
+    like_match_from(&text, &pattern, 0, 0)
+}
+
+fn like_match_from(text: &[char], pattern: &[char], ti: usize, pi: usize) -> bool {
+    if pi == pattern.len() {
+        return ti == text.len();
+    }
+
+    match pattern[pi] {
+        '%' => {
+            // try matching zero characters here, or consume one char of text
+            // and stay on this same '%' — classic backtracking wildcard match.
+            like_match_from(text, pattern, ti, pi + 1)
+                || (ti < text.len() && like_match_from(text, pattern, ti + 1, pi))
+        }
+        '_' => ti < text.len() && like_match_from(text, pattern, ti + 1, pi + 1),
+        c => ti < text.len() && text[ti] == c && like_match_from(text, pattern, ti + 1, pi + 1),
+    }
+}
+
+#[cfg(test)]
+mod like_tests {
+    use super::like_match;
+
+    #[test]
+    fn percent_matches_anything() {
+        assert!(like_match("hello", "%"));
+        assert!(like_match("", "%"));
+        assert!(like_match("hello world", "hello%"));
+        assert!(like_match("hello world", "%world"));
+        assert!(like_match("hello world", "%lo wo%"));
+        assert!(!like_match("hello", "hi%"));
+    }
+
+    #[test]
+    fn underscore_matches_exactly_one_char() {
+        assert!(like_match("cat", "c_t"));
+        assert!(!like_match("ct", "c_t"));
+        assert!(!like_match("caat", "c_t"));
+    }
+
+    #[test]
+    fn combined_wildcards() {
+        assert!(like_match("cataract", "c_t%"));
+        assert!(!like_match("dog", "c_t%"));
+    }
+
+    #[test]
+    fn no_wildcards_requires_exact_match() {
+        assert!(like_match("exact", "exact"));
+        assert!(!like_match("exact", "exactly"));
     }
 }

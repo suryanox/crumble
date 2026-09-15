@@ -121,6 +121,15 @@ fn fold_expr(expr: Expr) -> Expr {
             expr: Box::new(fold_expr(*expr)),
             negated,
         },
+        Expr::Like {
+            expr,
+            pattern,
+            negated,
+        } => Expr::Like {
+            expr: Box::new(fold_expr(*expr)),
+            pattern: Box::new(fold_expr(*pattern)),
+            negated,
+        },
         other => other,
     }
 }
