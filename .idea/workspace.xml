@@ -43,8 +43,6 @@
   <component name="ChangeListManager">
     <list default="true" id="cf7745a6-b7f4-4a18-97a1-bb78fb58a366" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/crumble-exec/src/interpret/eval.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-exec/src/interpret/eval.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/crates/crumble-opt/src/constant_fold.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-opt/src/constant_fold.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -68,61 +66,61 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.7330140340350928" />
-      <entry key="MS500" value="4.176186598623227" />
-      <entry key="S2" value="6.606098671956936" />
-      <entry key="S5" value="7.392682695120836" />
-      <entry key="S10" value="7.68731675426608" />
-      <entry key="S30" value="7.893693564105896" />
-      <entry key="S60" value="7.946582226463798" />
-      <entry key="M2" value="7.973224674221674" />
-      <entry key="M5" value="8.018254428317661" />
-      <entry key="M10" value="10.955653393719818" />
-      <entry key="M15" value="23.07243763667547" />
-      <entry key="M30" value="89.94755273379641" />
-      <entry key="H1" value="204.55232052664104" />
-      <entry key="H2" value="314.70214209912854" />
-      <entry key="H4" value="392.4883859026079" />
-      <entry key="D1" value="707.0833949410977" />
-      <entry key="W1" value="6811.08464877595" />
+      <entry key="MS100" value="1.5073507460254645" />
+      <entry key="MS500" value="3.7823747559914684" />
+      <entry key="S2" value="11.47856219492549" />
+      <entry key="S5" value="22.136207140390557" />
+      <entry key="S10" value="29.824848343462925" />
+      <entry key="S30" value="37.286842415467206" />
+      <entry key="S60" value="39.54914872960213" />
+      <entry key="M2" value="40.7499514535448" />
+      <entry key="M5" value="41.5223467482689" />
+      <entry key="M10" value="44.67800314599577" />
+      <entry key="M15" value="56.807954195000846" />
+      <entry key="M30" value="123.59637967981085" />
+      <entry key="H1" value="238.18901248927986" />
+      <entry key="H2" value="348.4302320873075" />
+      <entry key="H4" value="426.3205538719307" />
+      <entry key="D1" value="741.0339460403476" />
+      <entry key="W1" value="6845.018065712012" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
       <entry key="MS500" value="0.0" />
       <entry key="S2" value="0.0" />
-      <entry key="S5" value="2.417570659847338E-230" />
-      <entry key="S10" value="2.5007577172419587E-115" />
-      <entry key="S30" value="2.2171230948079333E-38" />
-      <entry key="S60" value="5.093086134211335E-19" />
-      <entry key="M2" value="2.6989524563379406E-9" />
-      <entry key="M5" value="0.0022407355192370234" />
-      <entry key="M10" value="0.27729369514491287" />
-      <entry key="M15" value="1.5085012804381026" />
-      <entry key="M30" value="8.684382393298428" />
-      <entry key="H1" value="21.30029067640325" />
-      <entry key="H2" value="33.540066099428735" />
-      <entry key="H4" value="42.14366253647343" />
-      <entry key="D1" value="67.46592747245965" />
-      <entry key="W1" value="731.1349848363124" />
+      <entry key="S5" value="7.432698829913116E-231" />
+      <entry key="S10" value="1.3866130952546803E-115" />
+      <entry key="S30" value="1.8214518663372702E-38" />
+      <entry key="S60" value="4.616310023852019E-19" />
+      <entry key="M2" value="2.5695212139848225E-9" />
+      <entry key="M5" value="0.0021971180289295502" />
+      <entry key="M10" value="0.2745815737016272" />
+      <entry key="M15" value="1.498649062175356" />
+      <entry key="M30" value="8.6559765206681" />
+      <entry key="H1" value="21.265426428331512" />
+      <entry key="H2" value="33.51260572127323" />
+      <entry key="H4" value="42.12640678808162" />
+      <entry key="D1" value="67.46132269259263" />
+      <entry key="W1" value="731.1278557051033" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.6979969563663555" />
-      <entry key="MS500" value="4.1544612573437725" />
-      <entry key="S2" value="6.596645122037608" />
-      <entry key="S5" value="7.388375763275297" />
-      <entry key="S10" value="7.685064723987076" />
-      <entry key="S30" value="7.892919861673398" />
-      <entry key="S60" value="7.946192424066608" />
-      <entry key="M2" value="7.973029032306263" />
-      <entry key="M5" value="8.020403527870812" />
-      <entry key="M10" value="11.2320226558584" />
-      <entry key="M15" value="24.57755711487678" />
-      <entry key="M30" value="98.62176971622056" />
-      <entry key="H1" value="225.83983144165467" />
-      <entry key="H2" value="348.23201962393074" />
-      <entry key="H4" value="434.62560713139004" />
-      <entry key="D1" value="774.5476252465089" />
-      <entry key="W1" value="7542.217095144621" />
+      <entry key="MS100" value="0.8221276162251971" />
+      <entry key="MS500" value="3.5625568344333285" />
+      <entry key="S2" value="11.401676589268956" />
+      <entry key="S5" value="22.092292451071362" />
+      <entry key="S10" value="29.797767634748716" />
+      <entry key="S30" value="37.276107996111605" />
+      <entry key="S60" value="39.54351932527069" />
+      <entry key="M2" value="40.74706691095219" />
+      <entry key="M5" value="41.52335976374372" />
+      <entry key="M10" value="44.951119672484715" />
+      <entry key="M15" value="58.30287653929409" />
+      <entry key="M30" value="132.2420402549818" />
+      <entry key="H1" value="259.4415881106687" />
+      <entry key="H2" value="381.9326115761961" />
+      <entry key="H4" value="468.4404989855298" />
+      <entry key="D1" value="808.4935678470802" />
+      <entry key="W1" value="7576.143382426403" />
     </decayedShown>
   </component>
   <component name="ProblemsViewState">
@@ -189,24 +187,7 @@
       <recent name="$PROJECT_DIR$/crates/crumble-buffer/src" />
     </key>
   </component>
-  <component name="RunManager" selected="Cargo.Test interpret::tests::order_by_asc_sorts_ascending_with_nulls_last">
-    <configuration name="Test btree::tests" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
-      <option name="command" value="test --package crumble-index --lib -- btree::tests" />
-      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
-      <envs />
-      <option name="emulateTerminal" value="true" />
-      <option name="channel" value="DEFAULT" />
-      <option name="requiredFeatures" value="true" />
-      <option name="allFeatures" value="false" />
-      <option name="withSudo" value="false" />
-      <option name="buildTarget" value="REMOTE" />
-      <option name="backtrace" value="SHORT" />
-      <option name="isRedirectInput" value="false" />
-      <option name="redirectInputPath" value="" />
-      <method v="2">
-        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
-      </method>
-    </configuration>
+  <component name="RunManager" selected="Cargo.Test lib::tests">
     <configuration name="Test interpret::tests::limit_larger_than_result_set_returns_everything" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
       <option name="command" value="test --package crumble-exec --lib -- interpret::tests::limit_larger_than_result_set_returns_everything --exact" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$" />
@@ -258,6 +239,23 @@
         <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
       </method>
     </configuration>
+    <configuration name="Test lib::tests" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="command" value="test --package crumble-jit --lib -- tests" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
     <configuration name="Test table::tests" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
       <option name="command" value="test --package crumble-storage --lib -- table::tests" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$" />
@@ -277,11 +275,11 @@
     </configuration>
     <recent_temporary>
       <list>
+        <item itemvalue="Cargo.Test lib::tests" />
         <item itemvalue="Cargo.Test interpret::tests::order_by_asc_sorts_ascending_with_nulls_last" />
         <item itemvalue="Cargo.Test interpret::tests::order_by_desc_sorts_descending_with_nulls_still_last" />
         <item itemvalue="Cargo.Test interpret::tests::limit_larger_than_result_set_returns_everything" />
         <item itemvalue="Cargo.Test table::tests" />
-        <item itemvalue="Cargo.Test btree::tests" />
       </list>
     </recent_temporary>
   </component>
