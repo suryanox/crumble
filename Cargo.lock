@@ -86,9 +86,11 @@ version = "0.1.0"
 dependencies = [
  "crumble-index",
  "crumble-ir",
+ "crumble-jit",
  "crumble-sql",
  "crumble-storage",
  "crumble-tx",
+ "inkwell",
  "tempfile",
  "thiserror",
 ]

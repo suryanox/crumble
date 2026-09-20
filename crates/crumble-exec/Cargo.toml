@@ -11,3 +11,5 @@ crumble-sql = { path = "../crumble-sql" }
 tempfile = "3.27.0"
 crumble-index = { path = "../crumble-index" }
 crumble-tx = { path = "../crumble-tx" }
+crumble-jit = { path = "../crumble-jit" }
+inkwell = { version = "0.10.0", features = ["llvm18-1"] }
