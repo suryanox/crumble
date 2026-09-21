@@ -63,9 +63,10 @@
 - [x] transaction status freezing + safe forgetting (VACUUM freezes committed xmin/xmax in place; VACUUM with no table forgets fully-frozen transaction status when the system is quiescent)
 - [x] transaction log compaction (Snapshot record replaces prior history, atomic temp-file+rename swap, keeps restart replay time bounded)
 
-## Not Started
-
-- [ ] concurrency (single-threaded end to end right now)
-- [ ] benchmarking
+# Execution strategies
+- [x] tree-walking interpreter (the default, handles everything)
+- [x] LLVM JIT compilation for Filter predicates (crumble-jit, via inkwell) — scoped to Int-only comparisons/AND/OR, compiled once per Filter call then reused per row; falls back to the interpreter per-row whenever a NULL is present in a would-be-fast-pathed column, or whenever the predicate uses String/Float/IS NULL/LIKE at all
+- [ ] JIT compilation for anything beyond Filter (joins, aggregates, projections all still interpreted)
+- [ ] Float/String support in compiled predicates
 
 Crumble is being built incrementally. APIs, architecture, and implementation details will change as the project evolves and new database concepts are explored.

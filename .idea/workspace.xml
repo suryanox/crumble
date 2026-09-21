@@ -46,7 +46,10 @@
   <component name="ChangeListManager">
     <list default="true" id="cf7745a6-b7f4-4a18-97a1-bb78fb58a366" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/crates/crumble-exec/src/interpret/filter.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-exec/src/interpret/filter.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/crates/crumble-jit/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/crates/crumble-jit/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/decisions/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/decisions/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/status/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/status/README.md" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -70,61 +73,61 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.001098689926454" />
-      <entry key="MS500" value="1.2559617251072952" />
-      <entry key="S2" value="1.7122723387976841" />
-      <entry key="S5" value="2.0986772996048604" />
-      <entry key="S10" value="4.044188209602385" />
-      <entry key="S30" value="19.793053951486424" />
-      <entry key="S60" value="43.02043289114738" />
-      <entry key="M2" value="68.85561499513611" />
-      <entry key="M5" value="93.63748168746474" />
-      <entry key="M10" value="106.66837763981259" />
-      <entry key="M15" value="121.57791754512843" />
-      <entry key="M30" value="189.89563976015333" />
-      <entry key="H1" value="305.7024169149426" />
-      <entry key="H2" value="417.9137662093362" />
-      <entry key="H4" value="497.6113043977845" />
-      <entry key="D1" value="814.2811576448374" />
-      <entry key="W1" value="6918.078379172523" />
+      <entry key="MS100" value="1.5146163385661509" />
+      <entry key="MS500" value="4.161087325844422" />
+      <entry key="S2" value="8.192515146695325" />
+      <entry key="S5" value="10.555405209811427" />
+      <entry key="S10" value="11.677182513257563" />
+      <entry key="S30" value="13.617172970573941" />
+      <entry key="S60" value="16.0621069135737" />
+      <entry key="M2" value="18.625629212196422" />
+      <entry key="M5" value="20.9638476293329" />
+      <entry key="M10" value="21.92689491117668" />
+      <entry key="M15" value="22.271760873022206" />
+      <entry key="M30" value="22.62930370053796" />
+      <entry key="H1" value="22.812999441046326" />
+      <entry key="H2" value="23.026836765627227" />
+      <entry key="H4" value="32.05437203618509" />
+      <entry key="D1" value="476.98344024967986" />
+      <entry key="W1" value="6373.148605213756" />
     </decayedCancelled>
     <decayedSelected>
-      <entry key="MS100" value="1.3533502041986364E-76" />
-      <entry key="MS500" value="6.703197864291437E-16" />
-      <entry key="S2" value="1.622861479996692E-4" />
-      <entry key="S5" value="0.03721358552816796" />
-      <entry key="S10" value="0.2978149608529967" />
-      <entry key="S30" value="1.5271532269774486" />
-      <entry key="S60" value="2.4325341304651245" />
-      <entry key="M2" value="3.1059899916643805" />
-      <entry key="M5" value="3.6128874976254606" />
-      <entry key="M10" value="4.039282005435805" />
-      <entry key="M15" value="5.232797656181101" />
-      <entry key="M30" value="12.200432748853146" />
-      <entry key="H1" value="24.749751312113265" />
-      <entry key="H2" value="37.11389628497567" />
-      <entry key="H4" value="45.877314764862994" />
-      <entry key="D1" value="71.39554430023418" />
-      <entry key="W1" value="735.0279832352495" />
+      <entry key="MS100" value="0.0" />
+      <entry key="MS500" value="0.0" />
+      <entry key="S2" value="0.0" />
+      <entry key="S5" value="0.0" />
+      <entry key="S10" value="0.0" />
+      <entry key="S30" value="0.0" />
+      <entry key="S60" value="0.0" />
+      <entry key="M2" value="4.289182318438279E-217" />
+      <entry key="M5" value="7.483509835705383E-87" />
+      <entry key="M10" value="2.2613819594690267E-43" />
+      <entry key="M15" value="8.090194483829346E-29" />
+      <entry key="M30" value="4.616562650696259E-14" />
+      <entry key="H1" value="1.5170084576526185E-6" />
+      <entry key="H2" value="0.009365316600737182" />
+      <entry key="H4" value="0.7466119384299363" />
+      <entry key="D1" value="37.05496174596198" />
+      <entry key="W1" value="668.0704245365841" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="0.9535555007287168" />
-      <entry key="MS500" value="1.2372430872944267" />
-      <entry key="S2" value="1.7033911719095187" />
-      <entry key="S5" value="2.114482323783652" />
-      <entry key="S10" value="4.2632433220594645" />
-      <entry key="S30" value="21.172058874941122" />
-      <entry key="S60" value="45.33194361632659" />
-      <entry key="M2" value="71.8832745773219" />
-      <entry key="M5" value="97.21359362251009" />
-      <entry key="M10" value="110.68748763744712" />
-      <entry key="M15" value="126.79449696440695" />
-      <entry key="M30" value="202.07969686541446" />
-      <entry key="H1" value="330.4363190238428" />
-      <entry key="H2" value="455.0159008125046" />
-      <entry key="H4" value="543.481366629776" />
-      <entry key="D1" value="885.6748644715703" />
-      <entry key="W1" value="7653.103804012717" />
+      <entry key="MS100" value="1.4841924160365159" />
+      <entry key="MS500" value="4.142726433096055" />
+      <entry key="S2" value="8.180657765202907" />
+      <entry key="S5" value="10.548607614962057" />
+      <entry key="S10" value="11.673279133365453" />
+      <entry key="S30" value="13.615566602264204" />
+      <entry key="S60" value="16.061107036611205" />
+      <entry key="M2" value="18.625025912777208" />
+      <entry key="M5" value="20.963568577230024" />
+      <entry key="M10" value="21.92674761341311" />
+      <entry key="M15" value="22.271660819080843" />
+      <entry key="M30" value="22.629252711733205" />
+      <entry key="H1" value="22.812975215631287" />
+      <entry key="H2" value="23.03618618912108" />
+      <entry key="H4" value="32.80085970157527" />
+      <entry key="D1" value="514.0374475704936" />
+      <entry key="W1" value="7041.216703808106" />
     </decayedShown>
   </component>
   <component name="ProblemsViewState">
@@ -139,50 +142,50 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Cargo.Test btree::tests.executor": "Run",
-    "Cargo.Test catalog::tests.executor": "Run",
-    "Cargo.Test catalog::tests::create_table_rejects_duplicate.executor": "Run",
-    "Cargo.Test constant_fold::tests.executor": "Run",
-    "Cargo.Test constant_fold::tests::folds_float_comparison.executor": "Run",
-    "Cargo.Test interpret::tests.executor": "Run",
-    "Cargo.Test interpret::tests::limit_larger_than_result_set_returns_everything.executor": "Debug",
-    "Cargo.Test interpret::tests::order_by_asc_sorts_ascending_with_nulls_last.executor": "Run",
-    "Cargo.Test interpret::tests::order_by_desc_sorts_descending_with_nulls_still_last.executor": "Run",
-    "Cargo.Test lib::tests.executor": "Run",
-    "Cargo.Test lower::tests.executor": "Run",
-    "Cargo.Test lower::tests::lowers_select_with_filter_float.executor": "Run",
-    "Cargo.Test pool::tests.executor": "Run",
-    "Cargo.Test table::tests.executor": "Run",
-    "Cargo.Test writer::tests.executor": "Run",
-    "CidrDebugProfileConversion": "true",
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "RunOnceActivity.rust.reset.selective.auto.import": "true",
-    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
-    "codeWithMe.voiceChat.enabledByDefault": "false",
-    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
-    "git-widget-placeholder": "main",
-    "git.auto.fetch.suggestion.counter": "1",
-    "junie.onboarding.icon.badge.shown": "true",
-    "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "/Users/sooraj/Code/Projects/crumble/crates/crumble-buffer/src",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.jshint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.jshint": "",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
-    "org.rust.disableDetachedFileInspection/Users/sooraj/Code/Projects/crumble/crates/crumble-wal/record.rs": "true",
-    "to.speed.mode.migration.done": "true",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Cargo.Test btree::tests.executor&quot;: &quot;Run&quot;,
+    &quot;Cargo.Test catalog::tests.executor&quot;: &quot;Run&quot;,
+    &quot;Cargo.Test catalog::tests::create_table_rejects_duplicate.executor&quot;: &quot;Run&quot;,
+    &quot;Cargo.Test constant_fold::tests.executor&quot;: &quot;Run&quot;,
+    &quot;Cargo.Test constant_fold::tests::folds_float_comparison.executor&quot;: &quot;Run&quot;,
+    &quot;Cargo.Test interpret::tests.executor&quot;: &quot;Run&quot;,
+    &quot;Cargo.Test interpret::tests::limit_larger_than_result_set_returns_everything.executor&quot;: &quot;Debug&quot;,
+    &quot;Cargo.Test interpret::tests::order_by_asc_sorts_ascending_with_nulls_last.executor&quot;: &quot;Run&quot;,
+    &quot;Cargo.Test interpret::tests::order_by_desc_sorts_descending_with_nulls_still_last.executor&quot;: &quot;Run&quot;,
+    &quot;Cargo.Test lib::tests.executor&quot;: &quot;Run&quot;,
+    &quot;Cargo.Test lower::tests.executor&quot;: &quot;Run&quot;,
+    &quot;Cargo.Test lower::tests::lowers_select_with_filter_float.executor&quot;: &quot;Run&quot;,
+    &quot;Cargo.Test pool::tests.executor&quot;: &quot;Run&quot;,
+    &quot;Cargo.Test table::tests.executor&quot;: &quot;Run&quot;,
+    &quot;Cargo.Test writer::tests.executor&quot;: &quot;Run&quot;,
+    &quot;CidrDebugProfileConversion&quot;: &quot;true&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.rust.reset.selective.auto.import&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
+    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;git.auto.fetch.suggestion.counter&quot;: &quot;1&quot;,
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/sooraj/Code/Projects/crumble/crates/crumble-buffer/src&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.jshint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.jshint&quot;: &quot;&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;org.rust.cargo.project.model.PROJECT_DISCOVERY&quot;: &quot;true&quot;,
+    &quot;org.rust.disableDetachedFileInspection/Users/sooraj/Code/Projects/crumble/crates/crumble-wal/record.rs&quot;: &quot;true&quot;,
+    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/crates/crumble-buffer/src" />

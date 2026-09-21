@@ -563,3 +563,45 @@ null placement as a fixed outcome (NULL always greater than non-null) before
 any direction reversal even happens, only reverse the real value comparison.
 good reminder that "add .reverse() somewhere in the sort" is the kind of
 change that's very easy to apply one level too broadly.
+
+## LLVM JIT via inkwell — real system dependency, not just a crate
+unlike every other dependency this project uses (sqlparser, serde, bincode
+— all pure rust, cargo just compiles them in), inkwell wraps LLVM's actual
+C API. LLVM itself has to already be installed on the machine, matching a
+specific version inkwell was built against (llvm18-1 for LLVM 18.1.x here)
+— a real toolchain dependency, first one in this project.
+
+extern "C" isn't about writing C code — it's borrowing C's calling
+convention (the stable, universal contract for how arguments/return values
+get passed at the hardware level) as the shared handshake between rust and
+raw LLVM-generated machine code, since rust's own default calling
+convention is deliberately unstable/unspecified between compiler versions.
+
+## scoped to Int-only, no NULL, Filter predicates only — real reasons, not laziness
+String comparison and float codegen are genuinely harder to generate
+efficient native code for; NULL's three-valued logic inside raw LLVM IR is
+real added complexity on its own. same "narrow honest slice, expand later"
+discipline as every other big feature — SeqScan before IndexScan, INNER
+before OUTER joins, etc.
+
+everything is represented as i64 inside codegen (booleans as 0/1) so
+Column/Literal/comparisons share one uniform type — only AND/OR (which need
+LLVM's real i1 boolean instructions to be correct, not i64 bitwise and/or)
+and the final return value ever convert to genuine i1. mixing this up would
+silently produce wrong results for any i64 value other than exactly 0/1 —
+worth being precise about, it's the trickiest part of the whole codegen file.
+
+## real bug caught before shipping: NULL silently becoming 0 in the fast path
+the naive version converts row values to the flat i64 array via
+`Value::Int(n) => n, _ => 0` — but Value::Null ALSO falls into that `_`
+catch-all, silently becoming literal 0. WHERE age > -5 on a NULL-age row
+should evaluate to NULL (excluded) but the compiled path would see 0 > -5,
+get true, wrongly include it. explicit IS NULL checks were already refused
+at compile time, but that never covered an ORDINARY comparison silently
+misbehaving when the underlying DATA happens to contain a null, even
+though the query text looks completely safe. fixed by checking per-ROW
+(not per-query) whether every column the compiled predicate reads is
+genuinely non-null in that specific row — fast path when safe, fall back
+to eval_expr for that one row when not. same table can have mostly-clean
+data with a few NULLs scattered in and correctly get the speed benefit for
+everything except those specific rows.
